@@ -1,0 +1,10 @@
+**Exact search speed, median of 3 repeats, test queries. Speed-up is relative to single-query. 1-thread runs are pinned to P-cores with OpenMP and BLAS capped at 1 thread; CPU / wall ≈ 1 confirms a single busy thread.**
+
+| Dataset | Mode | Threads | Queries | QPS | ms / query | Speed-up | Recall@10 | CPU / wall |
+|---|---|---|---|---|---|---|---|---|
+| SIFT-128 | single, 1 thread | 1 | 1,000 | 41.3 | 24.233 | 1.0× | 1.0000 | 0.99 |
+| SIFT-128 | batch, 1 thread | 1 | 5,000 | 379.5 | 2.635 | 9.2× | 1.0000 | 0.99 |
+| SIFT-128 | batch, all threads | 20 | 5,000 | 737.4 | 1.356 | 17.9× | 1.0000 | 19.34 |
+| GloVe-100 | single, 1 thread | 1 | 1,000 | 43.2 | 23.165 | 1.0× | 1.0000 | 0.99 |
+| GloVe-100 | batch, 1 thread | 1 | 5,000 | 339.9 | 2.942 | 7.9× | 1.0000 | 1.00 |
+| GloVe-100 | batch, all threads | 20 | 5,000 | 499.8 | 2.001 | 11.6× | 1.0000 | 5.79 |

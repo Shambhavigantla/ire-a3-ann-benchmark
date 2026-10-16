@@ -1,0 +1,9 @@
+data/
+*.hdf5
+*.index
+*.npy
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+results/quick/

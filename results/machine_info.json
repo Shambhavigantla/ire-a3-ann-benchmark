@@ -1,0 +1,28 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "13th Gen Intel(R) Core(TM) i5-13500",
+  "machine": "AMD64",
+  "logical_cpus": 20,
+  "python": "3.12.10",
+  "physical_cpus": 14,
+  "ram_gb": 15.7,
+  "performance_cores": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "numpy": "2.5.4",
+  "faiss": "1.15.1",
+  "h5py": "3.16.0",
+  "threadpoolctl": "3.7.0",
+  "matplotlib": "3.11.2"
+}

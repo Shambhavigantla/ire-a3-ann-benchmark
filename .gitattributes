@@ -1,0 +1,2 @@
+# Keep shell scripts with Unix line endings so `bash run_all.sh` works on Linux/macOS graders.
+*.sh text eol=lf
