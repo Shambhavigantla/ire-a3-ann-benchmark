@@ -64,6 +64,21 @@ def replace_rows(path: str, rows: list[dict], key_columns=KEY_COLUMNS) -> None:
             w.writerow({c: r.get(c, "") for c in COLUMNS})
 
 
+def drop_rows(path: str, **match) -> int:
+    """Delete rows whose columns equal all of `match` (compared as strings). Returns count."""
+    if not os.path.exists(path):
+        return 0
+    with open(path, newline="") as f:
+        rows = list(csv.DictReader(f))
+    keep = [r for r in rows if not all(str(r.get(k, "")) == str(v) for k, v in match.items())]
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=COLUMNS)
+        w.writeheader()
+        for r in keep:
+            w.writerow({c: r.get(c, "") for c in COLUMNS})
+    return len(rows) - len(keep)
+
+
 def machine_info() -> dict:
     info = {
         "platform": platform.platform(),

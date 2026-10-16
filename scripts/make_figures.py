@@ -16,10 +16,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-from ann_bench.plotting import INK_SECONDARY, MODE_COLORS, apply_style, save_figure  # noqa: E402
+from ann_bench.frontier import group_configs, pareto_frontier  # noqa: E402
+from ann_bench.plotting import (COLORS, GRID, INK_SECONDARY, MARKERS, MODE_COLORS,  # noqa: E402
+                                apply_style, save_figure)
 from ann_bench.tables import read_results  # noqa: E402
 
 DATASET_NAMES = {"sift": "SIFT-128", "glove": "GloVe-100"}
+INDEX_ORDER = ["HNSW", "IVFFlat", "IVFPQ"]
+INDEX_NAMES = {"HNSW": "HNSW", "IVFFlat": "IVF-Flat", "IVFPQ": "IVF-PQ"}
 
 
 def fig_part1(res_dir, fig_dir):
@@ -59,7 +63,63 @@ def fig_part1(res_dir, fig_dir):
     return save_figure(fig, "fig1_exact_single_vs_batch", fig_dir)
 
 
-PARTS = {1: fig_part1}
+def _pareto_panel(ax, groups, ds, exact_qps):
+    for kind in INDEX_ORDER:
+        cfgs = groups.get((ds, kind), [])
+        if not cfgs:
+            continue
+        runs = [{"recall": c["test"]["recall"], "qps": c["test"]["qps"]} for c in cfgs]
+        col = COLORS[kind]
+        # every configuration, faint: shows how much the build setting matters
+        ax.scatter([r["recall"] for r in runs], [r["qps"] for r in runs], s=9, color=col,
+                   alpha=0.25, linewidths=0, zorder=2)
+        front = pareto_frontier(runs)
+        ax.plot([r["recall"] for r in front], [r["qps"] for r in front], color=col,
+                marker=MARKERS[kind], markersize=4, markeredgecolor="white", markeredgewidth=0.6,
+                label=f"{INDEX_NAMES[kind]} (best trade-off)", zorder=3)
+    if exact_qps:
+        ax.axhline(exact_qps, color=COLORS["Flat"], linestyle="--", linewidth=1, zorder=1)
+        ax.scatter([1.0], [exact_qps], marker=MARKERS["Flat"], s=70, color=COLORS["Flat"],
+                   edgecolors="white", linewidths=0.6, zorder=4, label="Exact search")
+        ax.annotate(f"exact: {exact_qps:,.0f} QPS", (0.0, exact_qps), xycoords=("axes fraction", "data"),
+                    xytext=(4, 3), textcoords="offset points", fontsize=7, color=INK_SECONDARY)
+    for t in (0.90, 0.95):
+        ax.axvline(t, color=GRID, linewidth=1, linestyle=":", zorder=0)
+    ax.set_yscale("log")
+    ax.set_xlabel("Recall@10 (test queries)")
+    ax.set_ylabel("Queries per second (1 thread, log)")
+    ax.set_title(DATASET_NAMES[ds], loc="left")
+    ax.set_xlim(right=1.005)
+
+
+def fig_part2(res_dir, fig_dir):
+    """Fig 2: recall@10 vs QPS, best trade-off curve per index + exact baseline, per dataset."""
+    rows = read_results(os.path.join(res_dir, "results.csv"))
+    groups = group_configs(rows)
+    if not groups:
+        return []
+    exact = {r["dataset"]: float(r["qps"]) for r in rows
+             if r["experiment"] == "part1_exact" and r["mode"] == "single"}
+    datasets = [d for d in DATASET_NAMES if any(k[0] == d for k in groups)]
+    paths = []
+    for ds in datasets:
+        fig, ax = plt.subplots(figsize=(5.0, 3.6))
+        _pareto_panel(ax, groups, ds, exact.get(ds))
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2)
+        paths += save_figure(fig, f"fig2_pareto_{ds}", fig_dir)
+    if len(datasets) > 1:   # side-by-side version for the report
+        fig, axes = plt.subplots(1, len(datasets), figsize=(8.6, 3.4), sharey=True)
+        for i, (ax, ds) in enumerate(zip(axes, datasets)):
+            _pareto_panel(ax, groups, ds, exact.get(ds))
+            if i:
+                ax.set_ylabel("")
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.11), ncol=len(labels))
+        paths += save_figure(fig, "fig2_pareto", fig_dir)
+    return paths
+
+
+PARTS = {1: fig_part1, 2: fig_part2}
 
 
 def main():

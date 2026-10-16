@@ -38,17 +38,17 @@ code/
 │   ├── results.py          ✅ results.csv writer, machine info
 │   ├── tables.py           ✅ Markdown and LaTeX table writer
 │   ├── plotting.py         ✅ shared figure style and fixed per-index colours
-│   ├── indexes.py          ⬜ P2: build HNSW / IVF-Flat / IVF-PQ, set efSearch / nprobe
-│   ├── frontier.py         ⬜ P2: best trade-off curve, QPS at recall 0.90 / 0.95
+│   ├── indexes.py          ✅ P2: build HNSW / IVF-Flat / IVF-PQ (seeded), set efSearch / nprobe
+│   ├── frontier.py         ✅ P2: best trade-off curve, tune/test selection at recall 0.90 / 0.95
 │   └── synthetic.py        ⬜ P4: seeded data generator
 ├── scripts/
 │   ├── part1_exact.py      ✅ exact baseline, check against the file, single vs batch timing
-│   ├── part2_benchmark.py  ⬜ build × search parameter sweeps on both datasets
+│   ├── part2_benchmark.py  ✅ build × search sweeps on both datasets (--quick, --resume, --indexes)
 │   ├── part3_<choice>.py   ⬜
 │   ├── part4_<choice>.py   ⬜
 │   ├── make_tables.py      ✅ results/ → results/tables/*.md and *.tex
 │   └── make_figures.py     ✅ results/ → results/figures/*.png and *.pdf
-├── tests/                  ✅ unit tests (recall, timing, data) + FAISS integration test
+├── tests/                  ✅ unit tests (recall, timing, data, frontier) + FAISS index tests
 ├── docs/
 │   ├── DESIGN_NOTES.md     ✅ decisions and rationale, plus the checklist of required outputs
 │   └── PROCESS_LOG.md      ✅ plain-language log of each step

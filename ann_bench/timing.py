@@ -9,6 +9,9 @@ Two machine effects that silently corrupt timings, both handled here:
 * Hybrid CPUs (Intel 12th gen+) mix fast P-cores and slower E-cores; the OS can
   move a single-threaded run between them mid-measurement. `pinned_to` with
   `performance_cores()` keeps timed runs on P-cores.
+* After a multi-threaded FAISS call, idle OpenMP workers keep spin-waiting for
+  ~0.1-0.2 s. They burn CPU on the same cores and slowed a following 1-thread
+  timing by ~24% in a test. `time_search` therefore sleeps `settle_s` first.
 Each TimingResult records CPU time / wall time, so a run that used more
 threads than intended is visible in results.csv.
 """
@@ -29,10 +32,11 @@ SearchFn = Callable[[np.ndarray, int], np.ndarray]
 @dataclass
 class TimingResult:
     mode: str                 # "single" or "batch"
-    n_queries: int
-    times_s: list[float]      # wall time of each repeat (whole query set)
+    n_queries: int            # distinct queries
+    times_s: list[float]      # wall time of each repeat (`loops` passes over the query set)
     cpu_s: list[float]        # process CPU time of each repeat (all threads)
-    ids: np.ndarray           # results from the last repeat, (n_queries, k)
+    ids: np.ndarray           # results from the last pass, (n_queries, k)
+    loops: int = 1            # passes per repeat, so each repeat lasts >= min_repeat_s
 
     @property
     def median_s(self) -> float:
@@ -40,12 +44,12 @@ class TimingResult:
 
     @property
     def qps(self) -> float:
-        return self.n_queries / self.median_s
+        return self.n_queries * self.loops / self.median_s
 
     @property
     def latency_ms(self) -> float:
         """Mean time per query implied by the median run."""
-        return 1000.0 * self.median_s / self.n_queries
+        return 1000.0 / self.qps
 
     @property
     def cpu_per_wall(self) -> float:
@@ -65,11 +69,14 @@ def _run_batch(search: SearchFn, queries: np.ndarray, k: int) -> np.ndarray:
 
 
 def time_search(search: SearchFn, queries: np.ndarray, k: int, mode: str = "single",
-                repeats: int = 3, n_warmup: int = 50) -> TimingResult:
+                repeats: int = 3, n_warmup: int = 50, settle_s: float = 0.25,
+                min_repeat_s: float = 0.0) -> TimingResult:
     """Time `search` over all `queries`, `repeats` times; report the median.
 
     A short warm-up run first pulls code and index pages into cache so the
-    first repeat is not penalised.
+    first repeat is not penalised. Its duration also estimates how many passes
+    over the query set make one repeat last >= `min_repeat_s`: fast indexes
+    otherwise finish a repeat in a few ms, below timer and CPU-clock resolution.
     """
     if mode == "single":
         runner = _run_single
@@ -81,16 +88,26 @@ def time_search(search: SearchFn, queries: np.ndarray, k: int, mode: str = "sing
         raise ValueError("repeats must be >= 1")
 
     queries = np.ascontiguousarray(queries, dtype=np.float32)
+    if settle_s > 0:        # let spinning OpenMP workers from earlier parallel calls go idle
+        time.sleep(settle_s)
+    nq = queries.shape[0]
+    loops = 1
     if n_warmup > 0:
-        runner(search, queries[:min(n_warmup, queries.shape[0])], k)
+        n_w = min(n_warmup, nq)
+        t0 = time.perf_counter()
+        runner(search, queries[:n_w], k)
+        est_pass = (time.perf_counter() - t0) * nq / n_w
+        if min_repeat_s > 0 and est_pass > 0:
+            loops = max(1, int(np.ceil(min_repeat_s / est_pass)))
 
     times, cpus, ids = [], [], None
     for _ in range(repeats):
         c0, t0 = time.process_time(), time.perf_counter()
-        ids = runner(search, queries, k)
+        for _ in range(loops):
+            ids = runner(search, queries, k)
         times.append(time.perf_counter() - t0)
         cpus.append(time.process_time() - c0)
-    return TimingResult(mode=mode, n_queries=queries.shape[0], times_s=times, cpu_s=cpus, ids=ids)
+    return TimingResult(mode=mode, n_queries=nq, times_s=times, cpu_s=cpus, ids=ids, loops=loops)
 
 
 @contextmanager

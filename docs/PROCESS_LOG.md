@@ -102,7 +102,47 @@ git add -A && git commit -m "<what changed>"
 git push
 ```
 
-## Step 3: Part 2, benchmarking the three indexes (not started)
+## Step 3: Part 2, benchmarking the three indexes (code done; quick run done; full run in progress)
+
+**The three indexes, in plain words**
+- **HNSW:** a graph where each vector links to about M neighbours. A search walks the graph towards
+  the query. `efSearch` = how many candidates it keeps while walking: more is slower but more
+  accurate.
+- **IVF-Flat:** first groups the vectors into `nlist` clusters (k-means). A search only scans the
+  `nprobe` clusters closest to the query: more clusters is slower but more accurate.
+- **IVF-PQ:** like IVF-Flat, but each vector is compressed to `m` bytes (product quantization)
+  instead of 400–512 bytes. Much smaller, but distances become approximate, so some true neighbours
+  get ranked out of the top 10.
+
+**What the script does** (`scripts/part2_benchmark.py`)
+1. For each build setting (e.g. HNSW with M=16), build the index once and record build time and size.
+2. Turn the search knob up step by step. At each step:
+   - measure recall on all 5,000 tune and 5,000 test queries;
+   - measure speed one query at a time on 1 thread (P-cores, median of 3).
+3. Stop the sweep when recall reaches 0.999, stops improving, or the index becomes slower than exact
+   search.
+4. The tables pick the fastest setting that reaches recall 0.90 or 0.95 on the **tune** queries, and
+   report its **test** numbers.
+
+**Problems found and fixed while testing (details in DESIGN_NOTES D21–D25)**
+- IVF-PQ builds were slow: FAISS's default "polysemous training" step was on but useless here.
+  Turned off.
+- Timings straight after a multi-threaded step were 24% too slow: idle threads keep spinning for a
+  moment. Fix: a 0.25 s pause before every timing.
+- Very fast settings finished in a few milliseconds, which is too short to time reliably. Fix: each
+  repeat loops over the queries for at least 0.2 s.
+- Sweep steps were too coarse (×2) for the "QPS at 0.90/0.95" table. Now ×√2.
+
+**First look (quick run, 100K vectors; not for the report)**
+- HNSW is fastest on SIFT. On GloVe, HNSW and IVF-Flat are close.
+- IVF-PQ never reaches 0.90 (max 0.78 on SIFT, 0.63 on GloVe). Compression loses too much precision
+  to rank the top 10 correctly. Re-ranking with exact distances would fix this (Part 3 "compression"
+  option).
+- GloVe is much harder than SIFT: every index needs far more work for the same recall.
+
+## Step 3 (cont.): full run results
+
+*(to be filled in when the full run finishes)*
 
 ## Step 4: Part 3 experiment (not started)
 

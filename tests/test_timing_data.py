@@ -13,7 +13,7 @@ def fake_search(q, k):
 @pytest.mark.parametrize("mode", ["single", "batch"])
 def test_time_search_shapes_and_repeats(mode):
     q = np.zeros((25, 4), dtype=np.float32)
-    tr = time_search(fake_search, q, k=10, mode=mode, repeats=3)
+    tr = time_search(fake_search, q, k=10, mode=mode, repeats=3, settle_s=0)
     assert tr.ids.shape == (25, 10)
     assert len(tr.times_s) == 3
     assert tr.qps > 0 and tr.median_s == np.median(tr.times_s)
@@ -26,7 +26,8 @@ def test_single_mode_calls_one_query_at_a_time():
         seen.append(q.shape[0])
         return fake_search(q, k)
 
-    time_search(search, np.zeros((7, 2), dtype=np.float32), k=3, mode="single", repeats=1, n_warmup=0)
+    time_search(search, np.zeros((7, 2), dtype=np.float32), k=3, mode="single", repeats=1, n_warmup=0,
+                settle_s=0)
     assert seen == [1] * 7
 
 
@@ -63,3 +64,11 @@ def test_cpu_per_wall_near_one_for_single_thread_busy_loop():
 def test_parse_cpu_list():
     from ann_bench.timing import _parse_cpu_list
     assert _parse_cpu_list("0-3,8,10-11\n") == [0, 1, 2, 3, 8, 10, 11]
+
+
+def test_min_repeat_loops_fast_searches():
+    tr = time_search(fake_search, np.zeros((10, 2), dtype=np.float32), k=2, mode="single",
+                     repeats=2, settle_s=0, min_repeat_s=0.05)
+    assert tr.loops > 1
+    assert all(t >= 0.03 for t in tr.times_s)            # each repeat ran for roughly min_repeat_s
+    assert tr.qps == pytest.approx(10 * tr.loops / tr.median_s)

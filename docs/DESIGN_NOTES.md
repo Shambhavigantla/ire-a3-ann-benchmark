@@ -17,9 +17,10 @@ Status: ✅ done · 🟡 code done, waiting on the full run · ⬜ not started.
 | T1b | Exact search QPS: single query vs batch (1 thread and all threads) | 1 | `tables/t1b_exact_timing.*` | ✅ |
 | F1 | Bar chart of exact search, single vs batch | 1 | `figures/fig1_exact_single_vs_batch.*` | ✅ |
 | — | Unit tests for recall@10 | 1 | `tests/test_metrics.py` | ✅ |
-| F2 | Recall@10 vs QPS, best trade-off curve per index plus the exact baseline, one plot per dataset | 2 | `figures/fig2_pareto_{sift,glove}.*` | ⬜ |
-| T2a | QPS of each index at recall 0.90 and 0.95 | 2 | `tables/t2a_qps_at_recall.*` | ⬜ |
-| T2b | Build time, index size and bytes per vector for each index at recall 0.95 | 2 | `tables/t2b_cost_at_095.*` | ⬜ |
+| F2 | Recall@10 vs QPS, best trade-off curve per index plus the exact baseline, one plot per dataset (plus a side-by-side version) | 2 | `figures/fig2_pareto_{sift,glove}.*`, `fig2_pareto.*` | 🟡 |
+| T2a | QPS of each index at recall 0.90 and 0.95 | 2 | `tables/t2a_qps_at_recall.*` | 🟡 |
+| T2b | Build time, index size and bytes per vector for each index at recall 0.95 | 2 | `tables/t2b_cost_at_095.*` | 🟡 |
+| T2c | Highest recall each build setting reaches (supports the "why an index fails" text) | 2 | `tables/t2c_max_recall.*` | 🟡 |
 | — | Why an index fails to reach high recall (text) | 2 | report | ⬜ |
 | F3 | Part 3 main figure | 3 | `figures/fig3_*` | ⬜ |
 | — | Part 3 hypothesis committed before running | 3 | `hypothesis.md` | ⬜ |
@@ -154,7 +155,97 @@ used.
 
 ## Part 2: three indexes
 
-*(to be filled in)*
+**D15. What's measured for each (build, search) setting** (`scripts/part2_benchmark.py`).
+- **Recall:** on all 5,000 tune and all 5,000 test queries, using a multi-threaded batch search.
+  An index returns the same neighbours whether queries come one at a time or in a batch, so batching
+  only saves time. Recall uses D7.
+- **QPS:** one query at a time, `limit_threads(1)`, pinned to the P-cores (D13/D14), median of 3
+  repeats. It's timed on the first 500 tune queries and the first 2,000 test queries; quick mode uses
+  300 and 500. QPS is a rate, so a subsample is enough, and this keeps the full run at roughly an hour.
+- **Rows:** each setting writes one row for the tune half and one for the test half.
+
+**D16. Choosing settings for the tables (tune/test protocol).** For each recall target (0.90, 0.95)
+and each index, the chosen setting is the fastest one whose **tune** recall reaches the target, across
+all build settings. The tables report that setting's **test** recall and QPS. Test recall can land
+slightly under the target. That is reported as it is, not hidden: it is the honest generalisation gap.
+*Rejected:* interpolating along the test curve. That picks settings by looking at the test results.
+
+**D17. Best trade-off curve** (`ann_bench/frontier.py`). A run is on the curve if no other run of the
+same index family, across all build settings, is both at least as accurate and faster. The figure
+shows the curve as a line, all runs as faint dots, and exact search as a star with a dashed line. The
+QPS axis is log scale, which is fine for lines and points (D6).
+
+**D18. Build settings: one knob per family.**
+- **HNSW:** M ∈ {8, 16, 32}, with efConstruction fixed at 200.
+- **IVF-Flat:** nlist ∈ {1024, 4096, 16384}, roughly √N, 4√N and 16√N. Quick mode uses {256, 1024}.
+- **IVF-PQ:** nlist ∈ {1024, 4096}, code size m ∈ {d/8 or d/5, d/4, d/2} bytes. That is SIFT
+  m ∈ {16, 32, 64} and GloVe m ∈ {20, 25, 50}, because m must divide d. 8 bits per sub-code, with
+  residual encoding.
+
+**D19. Search sweeps.**
+- Values go up in steps of about ×√2: 1, 2, 3, 4, 6, 8, 12, 16, 24, …
+- efSearch from 10 up to 1024; nprobe from 1 up to 512, but never above nlist.
+- With ×2 steps, the first value reaching a target could be far past it. On SIFT, IVF-Flat jumped
+  from tune recall just under 0.90 to 0.966, so "QPS at 0.90" was really QPS at 0.966.
+- Quick mode keeps ×2 steps, because it only checks that the pipeline runs.
+- A sweep stops early on any of three rules:
+  - tune recall ≥ 0.999;
+  - doubling the knob (two ×√2 steps) gains < 0.001 tune recall (a plateau, so further points
+    could only be dominated);
+  - the index is slower than exact single-query search.
+- The plateau rule was added after the first quick run. There, IVF-PQ kept sweeping at a constant
+  recall (SIFT m=16 sat at 0.646 from nprobe 64 to 512).
+
+**D20. Building.**
+- Builds use all threads, and the build time is wall time with all threads. This is noted in the
+  tables.
+- IVF k-means trains on a seeded sample of min(n, max(100K, 50·nlist)) vectors. FAISS warns below
+  39·nlist.
+- PQ codebooks use FAISS's own cap of 65,536 training points.
+- IVF builds are bit-reproducible, and a test checks this. HNSW's multi-threaded insertion is not
+  exactly reproducible.
+
+**D21. Turned off FAISS's polysemous training for IVF-PQ.** `index_factory` turns it on by default. It
+only helps polysemous filtering (`polysemous_ht > 0`), which we never use. It cost 10–25% of IVF-PQ
+training time: m=64 took 75.6 s with it and 57.0 s without on 100K vectors. It doesn't change the
+encoding or search results.
+
+**D22. IVF-PQ build time is dominated by PQ training, and the cost doesn't shrink with n.** Each
+sub-quantizer is a 256-centroid k-means on up to 65,536 points, about 0.9 s each here, so training
+time ≈ 0.9·m seconds. The quick grid therefore keeps only the two smallest codes. *Report point:* PQ
+saves memory but costs more build time than IVF-Flat or HNSW at this scale.
+
+**D23. Python call overhead is measured, not assumed.** Searching a 1-vector index gives the ceiling
+from overhead alone: about 394K QPS (2.5 µs per call). The fastest HNSW setting takes about 16 µs
+per query, so overhead is at most about 15% of the fastest runs and negligible for the rest. It is
+recorded in `part2_summary.json`.
+
+**D24. Let OpenMP threads go idle before timing (bug found in the quick run).** After a
+multi-threaded FAISS call (a build, or the recall search), FAISS's idle worker threads keep spinning
+for about 0.1–0.2 s. They burn CPU on the same P-cores as the timed thread. In a controlled test, a
+1-thread HNSW timing started immediately afterwards showed CPU/wall about 9–10 and **24% lower QPS**
+(13.6K vs 17.9K). With a 0.2 s pause it was back to about 1.0 and full speed. `time_search` now sleeps
+`settle_s = 0.25` s first. Part 1 wasn't affected: its 50-query warm-up took over a second.
+
+**D25. Each timing repeat lasts at least 0.2 s.** Fast settings (around 20 µs per query) finished a
+repeat over 300 queries in about 6 ms. That's below Windows' CPU-clock tick (about 15.6 ms) and too
+short to measure reliably: tune and test QPS for the same setting differed by up to 2×. The warm-up
+now estimates the time for one pass over the queries, and each repeat loops over the query set until
+it reaches `min_repeat_s` (0.2 s; 0.1 s in quick mode). The number of passes is stored as
+`timing_loops`. After this fix, CPU/wall stayed at 0.99–1.20 and the median tune/test QPS ratio was
+1.00 (10th–90th percentile 0.88–1.15; the two halves are different query sets).
+*Rule for Parts 3/4:* use `time_search(..., min_repeat_s=0.2)` for every 1-thread QPS.
+
+**D26. The IVF nprobe cap was raised from 512 to 1024 after the first full run.** On GloVe, IVF-Flat
+with nlist=16384 was still improving at the cap: recall 0.927 at 712 QPS for nprobe=512. Its likely
+crossing of 0.95 (about 450 QPS by extrapolation) would beat the 399 QPS chosen in T2a. So the T2a
+entry was a limit of the sweep, not of the index. Several GloVe IVF-PQ sweeps also ended at the cap
+without plateauing. The affected builds were rerun with the higher cap: GloVe IVF-Flat and IVF-PQ,
+and SIFT IVF-Flat. SIFT IVF-PQ had already plateaued below 512. The first full run's CSV is kept as
+`results/results_before_ivf1024.csv.bak` (not submitted).
+*HNSW caps that were left alone:* GloVe HNSW with M=8 (0.865) and M=16 (0.952) still end at
+efSearch=1024. Both are dominated by M=32 at every recall they reach, so a higher cap would only add
+slow, dominated points. The report must not present "M=8 reaches 0.865" as that build's ceiling.
 
 ## Part 3
 

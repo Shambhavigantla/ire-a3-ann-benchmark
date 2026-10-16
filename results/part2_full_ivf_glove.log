@@ -1,0 +1,7 @@
+
+=== glove: base (1183514, 100), subset=False ===
+exact single-query QPS (Part 1): 43.16921825454194; call-overhead ceiling: 398,081 QPS
+
+  IVFFlat(nlist=1024): build 5.3s (train 1.9s on 100,000), 460.9 MB, 408.4 B/vec
+    nprobe=1     recall tune 0.3751 test 0.3778 | QPS tune   19954.9 test   19150.7 (0.052 ms, cpu/wall 0.90)
+    nprobe=2     recall tune 0.5033 test 0.5067 | QPS tune   10129.0 test   11687.6 (0.086 ms, cpu/wall 1.02)
