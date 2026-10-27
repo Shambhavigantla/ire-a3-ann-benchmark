@@ -178,10 +178,41 @@ locked. Within a run the repeats agree within a few percent. So:
 (3) the final report numbers must come from one clean `bash run_all.sh` on an idle machine.
 This also answers report Q5 ("how could the benchmark mislead?"). See DESIGN_NOTES D27.
 
-## Step 4: Part 3 experiment (not started)
+## Step 4: Part 3, compression (done)
 
-Choose one of: scaling / query difficulty / compression. Write the hypothesis in `hypothesis.md`
-and **commit it before running**.
+**What we asked.** IVF-PQ squeezes each vector into m bytes. Does a bigger m help, and can exact
+re-ranking fix PQ's mistakes? The hypothesis was written and committed first (`0b6391d`).
+
+**What we did** (`scripts/part3_compression.py`, design in DESIGN_NOTES D28)
+- SIFT 1M, nlist = 4096 fixed, m = 8, 16, 32, 64 bytes per vector.
+- Each IVF-PQ index was built once and searched two ways at every nprobe:
+  - **plain:** the top 10 by PQ's approximate distance;
+  - **re-rank:** take PQ's top 100, recompute their exact distances from the original vectors, and
+    keep the closest 10.
+- Reference: IVF-Flat with the *same* clusters (same seed, so the centroids are bit-identical,
+  checked). At equal nprobe all three look in exactly the same clusters.
+- We also measured **coverage**: how many of the true top 10 are anywhere in PQ's top 100.
+- Same timing rules as Part 2. Took 27 minutes. 300 rows; CPU/wall 0.92–1.02.
+
+**What we saw** (tables t3a, t3b; figure fig3_compression)
+- **More bytes, better plain PQ:** best recall 0.41 (m=8) → 0.59 → 0.74 → 0.88 (m=64). Memory
+  18 → 74 bytes per vector. Plain IVF-PQ never reaches 0.90.
+- **Re-ranking helps a lot, and most when m is small.** At nprobe = 64 the gain is +0.46 (m=8),
+  +0.38, +0.24, +0.10 (m=64).
+- **Re-ranking can only reorder, never add.** Re-ranked recall equalled coverage on every row.
+- **IVF-Flat is the ceiling.** Re-ranked recall never beat IVF-Flat. For m ≥ 32 it *matched* it
+  (within 0.0003), meaning PQ's top 100 already held every true neighbour from the scanned
+  clusters. For m = 8 it fell further behind as nprobe grew (−0.12 at nprobe 256). With more
+  candidates in play, PQ's rough ranking pushes true neighbours out of the 100.
+- **Re-ranking is cheap in time** (QPS 0.73–1.00× of plain; 100 exact distances are few next to
+  scanning the clusters) **but expensive in memory**: the original vectors add 512 bytes per vector.
+  So re-ranked IVF-PQ needs about as much RAM as IVF-Flat, unless the vectors live on disk.
+- **Surprise:** at recall 0.95, re-ranked m = 16 was a little faster than IVF-Flat (2,298 vs
+  1,926 QPS, same run). Plain PQ with large m scans clusters *slower* than IVF-Flat (m=64 at
+  nprobe 64: 855 vs 1,369 QPS). So small codes plus re-ranking was the best mix here.
+
+**Also fixed:** the timing helper now estimates how many loops it needs from a warm pass, not the
+slow first call (D29).
 
 ## Step 5: Part 4 experiment on our own data (not started)
 

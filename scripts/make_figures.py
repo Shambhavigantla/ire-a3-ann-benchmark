@@ -119,7 +119,99 @@ def fig_part2(res_dir, fig_dir):
     return paths
 
 
-PARTS = {1: fig_part1, 2: fig_part2}
+def _shade(hex_color, t):
+    """Blend hex_color with white: t=1 the colour itself, smaller t lighter."""
+    rgb = np.array([int(hex_color[i:i + 2], 16) for i in (1, 3, 5)]) / 255.0
+    return tuple(1 - t * (1 - rgb))
+
+
+def fig_part3(res_dir, fig_dir):
+    """Fig 3: IVF-PQ code size m, with vs without exact re-ranking, against IVF-Flat."""
+    rows = read_results(os.path.join(res_dir, "results.csv"))
+    groups = group_configs(rows, experiment="part3")
+    if not groups:
+        return []
+    ds = next(iter(groups))[0]
+    exact = {r["dataset"]: float(r["qps"]) for r in rows
+             if r["experiment"] == "part1_exact" and r["mode"] == "single"}.get(ds)
+    by_m = {}
+    for kind in ("IVFPQ", "IVFPQ+rerank"):
+        for c in groups.get((ds, kind), []):
+            by_m.setdefault((kind, c["build"]["m"]), []).append(c)
+    ms = sorted({m for _, m in by_m})
+    shade = {m: 0.35 + 0.65 * i / max(1, len(ms) - 1) for i, m in enumerate(ms)}   # darker = more bytes
+    ref = sorted(groups.get((ds, "IVFFlat"), []), key=lambda c: c["search"]["nprobe"])
+    names = {"IVFPQ": "IVF-PQ", "IVFPQ+rerank": "IVF-PQ + re-rank"}
+    styles = {"IVFPQ": "--", "IVFPQ+rerank": "-"}
+
+    fig, (a, b, c) = plt.subplots(1, 3, figsize=(11.0, 3.5), gridspec_kw={"width_ratios": [1.1, 1.1, 1.0]})
+    # (a) recall vs nprobe
+    if ref:
+        a.plot([x["search"]["nprobe"] for x in ref], [x["test"]["recall"] for x in ref],
+               color=COLORS["IVFFlat"], lw=4, alpha=0.45, zorder=2, label="IVF-Flat (same clusters)")
+    for (kind, m), cfgs in sorted(by_m.items()):
+        cfgs = sorted(cfgs, key=lambda x: x["search"]["nprobe"])
+        x = [q["search"]["nprobe"] for q in cfgs]
+        y = [q["test"]["recall"] for q in cfgs]
+        col = _shade(COLORS[kind], shade[m])
+        a.plot(x, y, styles[kind], color=col, lw=1.6, marker=MARKERS[kind], markersize=3, zorder=3)
+        if kind == "IVFPQ":
+            a.annotate(f"m={m}", (x[-1], y[-1]), xytext=(4, 0), textcoords="offset points",
+                       va="center", fontsize=7, color=INK_SECONDARY)
+    a.set_xscale("log", base=2)
+    a.set_xlabel("nprobe (clusters scanned)")
+    a.set_ylabel("Recall@10 (test)")
+    a.set_ylim(0, 1.02)
+    a.set_title("(a) Recall vs clusters scanned", loc="left")
+
+    # (b) QPS vs recall, best trade-off per (method, m)
+    for (kind, m), cfgs in sorted(by_m.items()):
+        front = pareto_frontier([{"recall": q["test"]["recall"], "qps": q["test"]["qps"]} for q in cfgs])
+        b.plot([r["recall"] for r in front], [r["qps"] for r in front], styles[kind],
+               color=_shade(COLORS[kind], shade[m]), lw=1.6, marker=MARKERS[kind], markersize=3)
+    if ref:
+        front = pareto_frontier([{"recall": q["test"]["recall"], "qps": q["test"]["qps"]} for q in ref])
+        b.plot([r["recall"] for r in front], [r["qps"] for r in front], color=COLORS["IVFFlat"], lw=3,
+               alpha=0.9, marker=MARKERS["IVFFlat"], markersize=3)
+    if exact:
+        b.axhline(exact, color=COLORS["Flat"], ls=":", lw=1)
+        b.annotate(f"exact: {exact:,.0f} QPS", (0.02, exact), xycoords=("axes fraction", "data"),
+                   xytext=(0, 3), textcoords="offset points", fontsize=7, color=INK_SECONDARY)
+    b.set_yscale("log")
+    b.set_xlabel("Recall@10 (test)")
+    b.set_ylabel("Queries per second (1 thread)")
+    b.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:,.0f}"))
+    b.set_title("(b) Speed vs recall", loc="left")
+
+    # (c) recall gained by re-ranking, at equal nprobe
+    for m in ms:
+        plain = {q["search"]["nprobe"]: q["test"]["recall"] for q in by_m.get(("IVFPQ", m), [])}
+        rer = {q["search"]["nprobe"]: q["test"]["recall"] for q in by_m.get(("IVFPQ+rerank", m), [])}
+        x = sorted(set(plain) & set(rer))
+        if not x:
+            continue
+        y = [rer[v] - plain[v] for v in x]
+        c.plot(x, y, color=_shade(COLORS["IVFPQ+rerank"], shade[m]), lw=1.6,
+               marker=MARKERS["IVFPQ+rerank"], markersize=3)
+        c.annotate(f"m={m}", (x[-1], y[-1]), xytext=(4, 0), textcoords="offset points",
+                   va="center", fontsize=7, color=INK_SECONDARY)
+    c.set_xscale("log", base=2)
+    c.set_xlabel("nprobe (clusters scanned)")
+    c.set_ylabel("Re-ranked minus plain recall@10")
+    c.set_ylim(bottom=0)
+    c.set_title("(c) Recall gained by re-ranking", loc="left")
+
+    from matplotlib.lines import Line2D
+    handles = [Line2D([], [], color=COLORS["IVFFlat"], lw=3, marker=MARKERS["IVFFlat"], label="IVF-Flat (reference)")]
+    handles += [Line2D([], [], color=COLORS[k], ls=styles[k], marker=MARKERS[k], label=names[k])
+                for k in ("IVFPQ", "IVFPQ+rerank")]
+    handles.append(Line2D([], [], color=INK_SECONDARY, lw=0, label=f"lighter = fewer bytes (m = {', '.join(map(str, ms))})"))
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.1), ncol=len(handles))
+    fig.tight_layout()
+    return save_figure(fig, "fig3_compression", fig_dir)
+
+
+PARTS = {1: fig_part1, 2: fig_part2, 3: fig_part3}
 
 
 def main():

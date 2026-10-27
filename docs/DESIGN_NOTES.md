@@ -22,8 +22,10 @@ Status: ✅ done · 🟡 code done, waiting on the full run · ⬜ not started.
 | T2b | Build time, index size and bytes per vector for each index at recall 0.95 | 2 | `tables/t2b_cost_at_095.*` | ✅ (final run pending, D27) |
 | T2c | Highest recall each build setting reaches (supports the "why an index fails" text) | 2 | `tables/t2c_max_recall.*` | ✅ (final run pending, D27) |
 | — | Why an index fails to reach high recall (text) | 2 | report | ⬜ |
-| F3 | Part 3 main figure | 3 | `figures/fig3_*` | ⬜ |
-| — | Part 3 hypothesis committed before running | 3 | `hypothesis.md` | ⬜ |
+| F3 | Part 3 figure: recall vs nprobe, QPS vs recall, re-rank gain (IVF-PQ m, plain vs re-rank vs IVF-Flat) | 3 | `figures/fig3_compression.*` | ✅ (final run pending, D27) |
+| T3a | Part 3 per method and m: memory, build time, best recall, QPS at 0.90/0.95 | 3 | `tables/t3a_compression_summary.*` | ✅ (final run pending, D27) |
+| T3b | Part 3 at equal nprobe: re-rank gain, coverage, gap to IVF-Flat, QPS ratio | 3 | `tables/t3b_rerank_fixed_nprobe.*` | ✅ (final run pending, D27) |
+| — | Part 3 hypothesis committed before running | 3 | `hypothesis.md` (commit `0b6391d`) | ✅ |
 | F4 | Part 4 main figure (one figure, at most one page) | 4 | `figures/fig4_*` | ⬜ |
 | — | Part 4 hypothesis committed before running; seeded generator | 4 | `hypothesis.md`, `ann_bench/synthetic.py` | ⬜ |
 | — | `results.csv`: one row per run behind every reported number | all | `results.csv` | 🟡 |
@@ -274,7 +276,48 @@ between runs, not within one.
 
 ## Part 3
 
-*(choice, hypothesis, design)*
+### D28. Part 3 choice and design: compression (IVF-PQ m, with vs without exact re-ranking)
+*Hypothesis:* `hypothesis.md`, committed (`0b6391d`) before any Part 3 code was written or run.
+Part 2's plain IVF-PQ results at m = 16/32/64 were already known and informed prediction 1.
+
+*Design* (`scripts/part3_compression.py`):
+- **Data and fixed settings.** SIFT 1M. nlist = 4096, the value Part 2 used for its m sweep. Re-rank
+  depth fixed at 100 (FAISS `IndexRefineFlat`, `k_factor` = 10). Quick mode: 100K, nlist = 1024.
+- **The one varied property:** m ∈ {8, 16, 32, 64}, i.e. 8–64 bytes per code. All four divide d = 128.
+  Quick mode uses {8, 16, 32}.
+- **Three methods.** Each IVF-PQ index is built **once** and searched both plain (the control) and
+  through the re-rank wrapper. Both therefore see exactly the same PQ codes and clusters, and the only
+  difference is the re-ranking step.
+- **Reference.** IVF-Flat, trained with the same seed on the same sample. Its centroids are bit-identical
+  to every IVF-PQ build (checked at run time and stored as `same_centroids_as_ivfflat`; also a unit
+  test). So at equal nprobe it scans exactly the same clusters, and its recall is a per-query upper
+  limit for re-ranked IVF-PQ. A unit test checks that limit query by query.
+- **Candidate coverage** (`metrics.coverage_at_k`): the share of the true top 10 anywhere in PQ's top
+  100, using the same tie rule as recall. It is stored in `notes.coverage` on the re-rank rows.
+  Exact re-ranking returns the 10 closest candidates, so re-ranked recall must *equal* coverage. A
+  unit test checks this, and every run shows it.
+- **Protocol:** as Part 2. Same √2 nprobe grid, same timing (1 thread, P-cores, median of 3 repeats
+  ≥ 0.2 s), same tune/test split and selection. Stop rules apply **per method**: plain IVF-PQ
+  plateaus early while re-ranking keeps improving, so a shared stop would cut the re-rank sweep short.
+- **Memory accounting.** The serialised plain index, plus 4 · d bytes per vector for re-ranking.
+  The original vectors are counted as held in RAM, as the hypothesis says. The re-rank row's
+  `index_bytes` = PQ index + raw vectors. This avoids serialising a 512 MB copy.
+- **Outputs.** t3a (memory, build time, best recall, QPS at 0.90/0.95 per method and m); t3b (equal
+  nprobe: re-rank gain, coverage, gap to IVF-Flat, QPS ratio); fig3 ((a) recall vs nprobe,
+  (b) QPS vs recall, (c) re-rank gain vs nprobe).
+
+*Not tested:* re-rank depth other than 100; nlist other than 4096; GloVe; raw vectors on disk (SSD
+reads would make re-ranking far more expensive than the in-RAM numbers here); OPQ or other
+rotations before PQ.
+
+### D29. Timing: estimate loops from a warm pass, not the cold first call
+`time_search` worked out how many loops make a repeat last `min_repeat_s` from the first warm-up
+call. That call includes first-call and cache-miss costs, so it overestimates the per-pass time and
+underestimates the loops; repeats then ran shorter than `min_repeat_s`. The unit test started
+failing every time with a trivial fake search. Fix: run the warm-up subset twice and estimate from
+the second, warm pass. This affects only how many times each repeat loops over the queries, never
+how QPS is computed (queries × loops ÷ median time). Parts 1–2 results stay valid, and the final clean
+`run_all.sh` uses the fixed code throughout.
 
 ## Part 4
 

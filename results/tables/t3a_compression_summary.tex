@@ -1,0 +1,21 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Part 3, SIFT-128, nlist=4096. Memory is the serialised index; the re-rank rows include the float32 original vectors held in RAM. QPS at a target: the fastest nprobe reaching it on the tune queries, reported on the test queries ($\times$ = speed-up over exact search).}
+\label{tab:t3a_compression_summary}
+\begin{tabular}{llrrrrrr}
+\toprule
+Method & m & Bytes / vector & vs raw float32 & Build (s) & Max test recall & QPS @ 0.90 & QPS @ 0.95 \\
+\midrule
+IVF-Flat (reference) & -- & 522.1 & 1.02$\times$ & 35.7 & 0.9998 (nprobe=384) & 2,424 (nprobe=32, 59$\times$) & 1,926 (nprobe=48, 47$\times$) \\
+IVF-PQ (control) & 8 & 18.3 & 0.04$\times$ & 46.6 & 0.4087 (nprobe=128) & not reached & not reached \\
+IVF-PQ (control) & 16 & 26.3 & 0.05$\times$ & 34.5 & 0.5881 (nprobe=192) & not reached & not reached \\
+IVF-PQ (control) & 32 & 42.3 & 0.08$\times$ & 57.8 & 0.7423 (nprobe=384) & not reached & not reached \\
+IVF-PQ (control) & 64 & 74.3 & 0.15$\times$ & 99.9 & 0.8839 (nprobe=512) & not reached & not reached \\
+IVF-PQ + re-rank & 8 & 530.3 & 1.04$\times$ & 46.8 & 0.8770 (nprobe=384) & not reached & not reached \\
+IVF-PQ + re-rank & 16 & 538.3 & 1.05$\times$ & 34.6 & 0.9840 (nprobe=512) & 3,430 (nprobe=32, 83$\times$) & 2,298 (nprobe=64, 56$\times$) \\
+IVF-PQ + re-rank & 32 & 554.3 & 1.08$\times$ & 57.9 & 0.9995 (nprobe=384) & 2,490 (nprobe=32, 60$\times$) & 1,810 (nprobe=48, 44$\times$) \\
+IVF-PQ + re-rank & 64 & 586.3 & 1.15$\times$ & 100.1 & 0.9998 (nprobe=384) & 1,416 (nprobe=32, 34$\times$) & 1,074 (nprobe=48, 26$\times$) \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -211,7 +211,89 @@ def table_part2(res_dir, out_dir):
     return written
 
 
-PARTS = {0: table_machine, 1: table_part1, 2: table_part2}
+P3_METHODS = [("IVFFlat", "IVF-Flat (reference)"), ("IVFPQ", "IVF-PQ (control)"),
+              ("IVFPQ+rerank", "IVF-PQ + re-rank")]
+P3_NPROBE = (4, 16, 64, 256)
+
+
+def _p3_by_nprobe(cfgs):
+    return {c["search"]["nprobe"]: c for c in cfgs}
+
+
+def table_part3(res_dir, out_dir):
+    groups = group_configs(read_results(os.path.join(res_dir, "results.csv"), "part3"), experiment="part3")
+    if not groups:
+        return []
+    ds = next(iter(groups))[0]
+    exact = _exact_single(res_dir)
+    raw = exact[ds][2] / exact[ds][3] if ds in exact and exact[ds][2] else None
+    ex_qps = exact.get(ds, (None,))[0]
+
+    def builds(kind):
+        out = {}
+        for c in groups.get((ds, kind), []):
+            out.setdefault(c["build"].get("m"), []).append(c)
+        return sorted(out.items(), key=lambda kv: kv[0] or 0)
+
+    # T3a: one row per (method, m): memory, build, best recall, QPS at the targets.
+    t3a = []
+    for kind, name in P3_METHODS:
+        for m, cfgs in builds(kind):
+            c0 = cfgs[0]
+            best = max(cfgs, key=lambda c: c["test"]["recall"])
+            row = [name, str(m) if m else "–", fmt(c0["bytes_per_vector"], 1),
+                   f"{c0['bytes_per_vector'] / raw:.2f}×" if raw else "–", fmt(c0["build_time_s"], 1),
+                   f"{best['test']['recall']:.4f} (nprobe={best['search']['nprobe']})"]
+            for t in TARGETS:
+                c = select_config(cfgs, t)
+                if c is None:
+                    row.append("not reached")
+                else:
+                    speed = f", {c['test']['qps'] / ex_qps:,.0f}×" if ex_qps else ""
+                    row.append(f"{c['test']['qps']:,.0f} (nprobe={c['search']['nprobe']}{speed})")
+            t3a.append(row)
+    nlist = next(iter(groups.values()))[0]["build"]["nlist"]
+    written = write_table(
+        t3a, ["Method", "m", "Bytes / vector", "vs raw float32", "Build (s)", "Max test recall",
+              "QPS @ 0.90", "QPS @ 0.95"],
+        "t3a_compression_summary", out_dir,
+        caption=f"Part 3, {DATASET_NAMES[ds]}, nlist={nlist}. Memory is the serialised index; the "
+                "re-rank rows include the float32 original vectors held in RAM. QPS at a target: the "
+                "fastest nprobe reaching it on the tune queries, reported on the test queries "
+                "(× = speed-up over exact search).")
+
+    # T3b: the same nprobe for every method -> gain from re-ranking, gap to IVF-Flat, QPS cost.
+    ref = _p3_by_nprobe(groups.get((ds, "IVFFlat"), []))
+    plain = dict(builds("IVFPQ"))
+    rer = dict(builds("IVFPQ+rerank"))
+    t3b = []
+    for m in sorted(rer):
+        p_by, r_by = _p3_by_nprobe(plain.get(m, [])), _p3_by_nprobe(rer[m])
+        for npb in P3_NPROBE:
+            if npb not in r_by:
+                continue
+            r, p, f = r_by[npb], p_by.get(npb), ref.get(npb)
+            rr, cov = r["test"]["recall"], r["test"]["notes"].get("coverage")
+            t3b.append([str(m), str(npb),
+                        f"{p['test']['recall']:.4f}" if p else "–",
+                        f"{rr:.4f}", f"{cov:.4f}" if cov is not None else "–",
+                        f"{f['test']['recall']:.4f}" if f else "–",
+                        f"{rr - p['test']['recall']:+.4f}" if p else "–",
+                        f"{rr - f['test']['recall']:+.4f}" if f else "–",
+                        f"{p['test']['qps']:,.0f}" if p else "–", f"{r['test']['qps']:,.0f}",
+                        f"{r['test']['qps'] / p['test']['qps']:.2f}" if p else "–"])
+    written += write_table(
+        t3b, ["m", "nprobe", "IVF-PQ recall", "+ re-rank recall", "Coverage of top 100",
+              "IVF-Flat recall", "Gain from re-rank", "Re-rank − IVF-Flat", "IVF-PQ QPS",
+              "+ re-rank QPS", "QPS ratio"],
+        "t3b_rerank_fixed_nprobe", out_dir, align="rr" + "r" * 9,
+        caption="Part 3 at equal nprobe (same clusters scanned by all three methods; test queries). "
+                "Coverage = share of the true top 10 anywhere in IVF-PQ's top 100 candidates; "
+                "'–' = that method's sweep had stopped (recall plateau or >= 0.999).")
+    return written
+
+
+PARTS = {0: table_machine, 1: table_part1, 2: table_part2, 3: table_part3}
 
 
 def main():

@@ -60,7 +60,8 @@ def group_configs(rows: list[dict], experiment: str = "part2") -> dict:
             "notes": json.loads(r["notes"]) if r.get("notes") else {},
         })
         c[r["query_set"]] = {"recall": float(r["recall_at_k"]), "qps": float(r["qps"]),
-                             "latency_ms": float(r["latency_ms"])}
+                             "latency_ms": float(r["latency_ms"]),
+                             "notes": json.loads(r["notes"]) if r.get("notes") else {}}
     out = {}
     for c in configs.values():
         if "tune" in c and "test" in c:

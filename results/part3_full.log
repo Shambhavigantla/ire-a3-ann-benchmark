@@ -1,0 +1,101 @@
+=== Part 3 compression: sift base (1000000, 128), nlist=4096, m=[8, 16, 32, 64], re-rank depth 100 ===
+exact single-query QPS (Part 1): 41.2665184766816; call-overhead ceiling: 354,641 QPS
+
+  IVF-Flat nlist=4096: build 35.7s, 522.1 B/vec
+    nprobe=1     IVFFlat      0.2965    13478 QPS
+    nprobe=2     IVFFlat      0.4339    11325 QPS
+    nprobe=3     IVFFlat      0.5229     9723 QPS
+    nprobe=4     IVFFlat      0.5848     9588 QPS
+    nprobe=6     IVFFlat      0.6687     7631 QPS
+    nprobe=8     IVFFlat      0.7251     6278 QPS
+    nprobe=12    IVFFlat      0.7974     4836 QPS
+    nprobe=16    IVFFlat      0.8452     3995 QPS
+    nprobe=24    IVFFlat      0.8971     2911 QPS
+    nprobe=32    IVFFlat      0.9263     2424 QPS
+    nprobe=48    IVFFlat      0.9579     1926 QPS
+    nprobe=64    IVFFlat      0.9731     1369 QPS
+    nprobe=96    IVFFlat      0.9872     1048 QPS
+    nprobe=128   IVFFlat      0.9936      782 QPS
+    nprobe=192   IVFFlat      0.9978      553 QPS
+    nprobe=256   IVFFlat      0.9991      426 QPS
+    nprobe=384   IVFFlat      0.9998      300 QPS
+
+  IVF-PQ m=8: build 46.6s (train 31.8s), 18.3 B/vec plain, 530.3 B/vec with raw vectors; centroids identical to IVF-Flat: True
+    nprobe=1     IVFPQ        0.2243    12761 QPS | IVFPQ+rerank 0.2952 cov 0.2952     9280 QPS
+    nprobe=2     IVFPQ        0.2900    11818 QPS | IVFPQ+rerank 0.4303 cov 0.4303     9253 QPS
+    nprobe=3     IVFPQ        0.3230    12694 QPS | IVFPQ+rerank 0.5162 cov 0.5162     9468 QPS
+    nprobe=4     IVFPQ        0.3438    11895 QPS | IVFPQ+rerank 0.5742 cov 0.5742     8690 QPS
+    nprobe=6     IVFPQ        0.3647    11002 QPS | IVFPQ+rerank 0.6503 cov 0.6503     7899 QPS
+    nprobe=8     IVFPQ        0.3774     9680 QPS | IVFPQ+rerank 0.7001 cov 0.7001     7980 QPS
+    nprobe=12    IVFPQ        0.3899     9572 QPS | IVFPQ+rerank 0.7584 cov 0.7584     8203 QPS
+    nprobe=16    IVFPQ        0.3965    10549 QPS | IVFPQ+rerank 0.7940 cov 0.7940     8157 QPS
+    nprobe=24    IVFPQ        0.4019     8789 QPS | IVFPQ+rerank 0.8281 cov 0.8281     6637 QPS
+    nprobe=32    IVFPQ        0.4046     7573 QPS | IVFPQ+rerank 0.8457 cov 0.8457     6341 QPS
+    nprobe=48    IVFPQ        0.4070     5763 QPS | IVFPQ+rerank 0.8620 cov 0.8620     4981 QPS
+    nprobe=64    IVFPQ        0.4079     5012 QPS | IVFPQ+rerank 0.8681 cov 0.8681     4204 QPS
+    nprobe=96    IVFPQ        0.4085     3653 QPS | IVFPQ+rerank 0.8736 cov 0.8736     3220 QPS
+    nprobe=128   IVFPQ        0.4087     2858 QPS | IVFPQ+rerank 0.8759 cov 0.8759     2648 QPS
+    nprobe=192   IVFPQ+rerank 0.8768 cov 0.8768     1974 QPS
+    nprobe=256   IVFPQ+rerank 0.8769 cov 0.8769     1573 QPS
+    nprobe=384   IVFPQ+rerank 0.8770 cov 0.8770     1143 QPS
+
+  IVF-PQ m=16: build 34.5s (train 27.0s), 26.3 B/vec plain, 538.3 B/vec with raw vectors; centroids identical to IVF-Flat: True
+    nprobe=1     IVFPQ        0.2633    15852 QPS | IVFPQ+rerank 0.2965 cov 0.2965    11827 QPS
+    nprobe=2     IVFPQ        0.3611    14625 QPS | IVFPQ+rerank 0.4338 cov 0.4338    10698 QPS
+    nprobe=3     IVFPQ        0.4165    12962 QPS | IVFPQ+rerank 0.5227 cov 0.5227     9763 QPS
+    nprobe=4     IVFPQ        0.4506    12797 QPS | IVFPQ+rerank 0.5846 cov 0.5846     9473 QPS
+    nprobe=6     IVFPQ        0.4905    11276 QPS | IVFPQ+rerank 0.6681 cov 0.6681     8605 QPS
+    nprobe=8     IVFPQ        0.5145    10292 QPS | IVFPQ+rerank 0.7242 cov 0.7242     8151 QPS
+    nprobe=12    IVFPQ        0.5406     8956 QPS | IVFPQ+rerank 0.7956 cov 0.7956     7053 QPS
+    nprobe=16    IVFPQ        0.5570     7735 QPS | IVFPQ+rerank 0.8427 cov 0.8427     5967 QPS
+    nprobe=24    IVFPQ        0.5706     6076 QPS | IVFPQ+rerank 0.8925 cov 0.8925     5055 QPS
+    nprobe=32    IVFPQ        0.5768     3904 QPS | IVFPQ+rerank 0.9201 cov 0.9201     3430 QPS
+    nprobe=48    IVFPQ        0.5827     3127 QPS | IVFPQ+rerank 0.9490 cov 0.9490     2724 QPS
+    nprobe=64    IVFPQ        0.5850     2576 QPS | IVFPQ+rerank 0.9625 cov 0.9625     2298 QPS
+    nprobe=96    IVFPQ        0.5867     1943 QPS | IVFPQ+rerank 0.9744 cov 0.9744     1739 QPS
+    nprobe=128   IVFPQ        0.5876     1479 QPS | IVFPQ+rerank 0.9797 cov 0.9797     1351 QPS
+    nprobe=192   IVFPQ        0.5881     1068 QPS | IVFPQ+rerank 0.9826 cov 0.9826      977 QPS
+    nprobe=256   IVFPQ+rerank 0.9835 cov 0.9835      749 QPS
+    nprobe=384   IVFPQ+rerank 0.9839 cov 0.9839      657 QPS
+    nprobe=512   IVFPQ+rerank 0.9840 cov 0.9840      529 QPS
+
+  IVF-PQ m=32: build 57.8s (train 40.2s), 42.3 B/vec plain, 554.3 B/vec with raw vectors; centroids identical to IVF-Flat: True
+    nprobe=1     IVFPQ        0.2838     9699 QPS | IVFPQ+rerank 0.2965 cov 0.2965     7935 QPS
+    nprobe=2     IVFPQ        0.4026     9548 QPS | IVFPQ+rerank 0.4339 cov 0.4339     7515 QPS
+    nprobe=3     IVFPQ        0.4750     8798 QPS | IVFPQ+rerank 0.5229 cov 0.5229     6746 QPS
+    nprobe=4     IVFPQ        0.5217     7518 QPS | IVFPQ+rerank 0.5848 cov 0.5848     6191 QPS
+    nprobe=6     IVFPQ        0.5801     7041 QPS | IVFPQ+rerank 0.6687 cov 0.6687     5394 QPS
+    nprobe=8     IVFPQ        0.6157     6288 QPS | IVFPQ+rerank 0.7251 cov 0.7251     5135 QPS
+    nprobe=12    IVFPQ        0.6574     5212 QPS | IVFPQ+rerank 0.7974 cov 0.7974     4256 QPS
+    nprobe=16    IVFPQ        0.6831     4419 QPS | IVFPQ+rerank 0.8452 cov 0.8452     3870 QPS
+    nprobe=24    IVFPQ        0.7060     3455 QPS | IVFPQ+rerank 0.8971 cov 0.8971     2876 QPS
+    nprobe=32    IVFPQ        0.7178     2686 QPS | IVFPQ+rerank 0.9263 cov 0.9263     2490 QPS
+    nprobe=48    IVFPQ        0.7294     2024 QPS | IVFPQ+rerank 0.9578 cov 0.9578     1810 QPS
+    nprobe=64    IVFPQ        0.7345     1572 QPS | IVFPQ+rerank 0.9730 cov 0.9730     1456 QPS
+    nprobe=96    IVFPQ        0.7386     1110 QPS | IVFPQ+rerank 0.9871 cov 0.9871     1060 QPS
+    nprobe=128   IVFPQ        0.7409      873 QPS | IVFPQ+rerank 0.9934 cov 0.9934      830 QPS
+    nprobe=192   IVFPQ        0.7420      615 QPS | IVFPQ+rerank 0.9975 cov 0.9975      598 QPS
+    nprobe=256   IVFPQ        0.7422      470 QPS | IVFPQ+rerank 0.9988 cov 0.9988      471 QPS
+    nprobe=384   IVFPQ        0.7423      323 QPS | IVFPQ+rerank 0.9995 cov 0.9995      324 QPS
+
+  IVF-PQ m=64: build 99.9s (train 77.0s), 74.3 B/vec plain, 586.3 B/vec with raw vectors; centroids identical to IVF-Flat: True
+    nprobe=1     IVFPQ        0.2931     8613 QPS | IVFPQ+rerank 0.2965 cov 0.2965     7254 QPS
+    nprobe=2     IVFPQ        0.4257     7694 QPS | IVFPQ+rerank 0.4339 cov 0.4339     6205 QPS
+    nprobe=3     IVFPQ        0.5095     6628 QPS | IVFPQ+rerank 0.5229 cov 0.5229     5654 QPS
+    nprobe=4     IVFPQ        0.5664     5956 QPS | IVFPQ+rerank 0.5848 cov 0.5848     5175 QPS
+    nprobe=6     IVFPQ        0.6412     4981 QPS | IVFPQ+rerank 0.6687 cov 0.6687     4174 QPS
+    nprobe=8     IVFPQ        0.6889     4239 QPS | IVFPQ+rerank 0.7251 cov 0.7251     3463 QPS
+    nprobe=12    IVFPQ        0.7485     3212 QPS | IVFPQ+rerank 0.7974 cov 0.7974     3489 QPS
+    nprobe=16    IVFPQ        0.7858     3276 QPS | IVFPQ+rerank 0.8452 cov 0.8452     2951 QPS
+    nprobe=24    IVFPQ        0.8224     1911 QPS | IVFPQ+rerank 0.8971 cov 0.8971     1791 QPS
+    nprobe=32    IVFPQ        0.8423     1574 QPS | IVFPQ+rerank 0.9263 cov 0.9263     1416 QPS
+    nprobe=48    IVFPQ        0.8619     1107 QPS | IVFPQ+rerank 0.9579 cov 0.9579     1074 QPS
+    nprobe=64    IVFPQ        0.8701      855 QPS | IVFPQ+rerank 0.9731 cov 0.9731      825 QPS
+    nprobe=96    IVFPQ        0.8777      594 QPS | IVFPQ+rerank 0.9872 cov 0.9872      590 QPS
+    nprobe=128   IVFPQ        0.8809      579 QPS | IVFPQ+rerank 0.9936 cov 0.9936      452 QPS
+    nprobe=192   IVFPQ        0.8829      326 QPS | IVFPQ+rerank 0.9978 cov 0.9978      337 QPS
+    nprobe=256   IVFPQ        0.8836      298 QPS | IVFPQ+rerank 0.9991 cov 0.9991      250 QPS
+    nprobe=384   IVFPQ        0.8839      167 QPS | IVFPQ+rerank 0.9998 cov 0.9998      169 QPS
+    nprobe=512   IVFPQ        0.8839      131 QPS
+
+Part 3 done in 27.2 min

@@ -127,3 +127,27 @@ def strict_recall_at_k(retrieved_ids: np.ndarray, gt_ids: np.ndarray, k: int = 1
         r = ret[i][ret[i] >= 0]
         out[i] = len(np.intersect1d(r, gt[i])) / float(k)
     return out
+
+
+def coverage_at_k(candidate_ids: np.ndarray, base: np.ndarray, queries: np.ndarray,
+                  gt_ids: np.ndarray, k: int = 10,
+                  rtol: float = DEFAULT_RTOL, atol: float = 0.0) -> np.ndarray:
+    """Per-query tie-aware share of the true top k found ANYWHERE in a candidate list.
+
+    candidate_ids may have any number of columns (e.g. the 100 candidates that are
+    re-ranked). Same hit rule as recall_at_k; hits are capped at k. Exact re-ranking
+    of the candidates returns their k closest, so its recall@k equals this value -
+    re-ranking can reorder candidates but never add one.
+    """
+    gt_ids = np.asarray(gt_ids)
+    cand = np.asarray(candidate_ids)
+    if cand.shape[0] != gt_ids.shape[0]:
+        raise ValueError("candidate_ids and gt_ids have different numbers of queries")
+    gt_d = squared_l2_to_ids(base, queries, gt_ids[:, :k])
+    if not np.isfinite(gt_d).all():
+        raise ValueError("ground truth contains invalid ids")
+    kth = gt_d.max(axis=1)
+    d = squared_l2_to_ids(base, queries, cand)
+    threshold = kth + rtol * np.abs(kth) + atol
+    hits = (cand >= 0) & first_occurrence_mask(cand) & (d <= threshold[:, None])
+    return np.minimum(hits.sum(axis=1), k) / float(k)

@@ -92,3 +92,24 @@ def set_search_param(index, spec: IndexSpec, value: int) -> None:
         index.hnsw.efSearch = int(value)
     else:
         faiss.extract_index_ivf(index).nprobe = int(value)
+
+
+def add_exact_rerank(index, base: np.ndarray, depth: int, k: int):
+    """Wrap an index so each search re-ranks its top `depth` candidates by exact L2.
+
+    IndexRefineFlat keeps its own float32 copy of `base` (that memory is part of the
+    index's cost). A search for k results asks `index` for k * k_factor candidates
+    and returns their k closest by exact distance. Search knobs (nprobe) are still
+    set on the wrapped index, and set_search_param reaches it through the wrapper.
+    """
+    if depth % k:
+        raise ValueError(f"re-rank depth {depth} must be a multiple of k={k}")
+    refine = faiss.IndexRefineFlat(index, faiss.swig_ptr(np.ascontiguousarray(base, dtype=np.float32)))
+    refine.k_factor = float(depth // k)
+    return refine
+
+
+def coarse_centroids(index) -> np.ndarray:
+    """The IVF coarse centroids (nlist, d) of an IVF index, possibly wrapped."""
+    ivf = faiss.extract_index_ivf(index)
+    return ivf.quantizer.reconstruct_n(0, ivf.nlist)

@@ -78,6 +78,58 @@ sentence.
   F2.
 - More bytes raise the ceiling. Re-ranking candidates with exact distances removes it.
 
+## Part 3: compression (F3, T3a, T3b)
+
+**Set-up, in one or two lines.**
+- SIFT 1M, IVF nlist = 4096; m ∈ {8, 16, 32, 64}.
+- Each IVF-PQ index is searched plain (control) and with exact re-ranking of its top 100 (FAISS
+  `IndexRefineFlat`). Reference: IVF-Flat with bit-identical centroids, so at equal nprobe all three
+  scan the same clusters.
+- Memory counts the original vectors as in RAM for re-ranking.
+- *Prior evidence:* Part 2's plain IVF-PQ at m = 16/32/64 informed prediction 1. State it.
+
+**Verdict on each prediction (test queries):**
+
+| Prediction | Result | Verdict |
+|---|---|---|
+| 1. Plain recall rises with m, so does memory | best recall 0.409 / 0.588 / 0.742 / 0.884; 18 / 26 / 42 / 74 B per vector | supported |
+| 2. Re-ranking helps at every m, more at small m | gain at nprobe 64: +0.460 / +0.378 / +0.239 / +0.103; positive at every nprobe | supported |
+| 3. Re-ranked recall stays below IVF-Flat (can't recover missing candidates) | never above it, and recall = coverage on all rows. m ≥ 32: *equal* to IVF-Flat (≤ 0.0003). m = 8: gap grows to −0.122 at nprobe 256 | supported on the bound; "below" holds only for m ≤ 16 |
+| 4. Re-ranking lowers QPS and needs the raw vectors | QPS 0.73–1.00× plain (one tie); +512 B per vector (26 → 538 B at m=16) | supported; the time cost is small, the memory cost large |
+
+**Mechanisms to write:**
+- **Why m matters.** With m sub-vectors, each 8-bit codebook quantises d/m dimensions with 256
+  centroids. m = 8 means 16 dimensions per 256 centroids: large error, which misorders neighbours
+  whose distances differ by less than that error.
+- **Why re-ranked recall equals coverage.** Exact re-ranking returns the true 10 closest of the 100
+  candidates, so every true neighbour among them is found and none outside can be.
+- **Why the coverage gap grows with nprobe at m = 8.** More clusters bring more candidates competing
+  for 100 slots. If the PQ error is large, true neighbours fall below rank 100. At m ≥ 32 the error is
+  small enough that the true top 10 are always in the top 100, so re-ranking reaches the IVF-Flat
+  limit, and further gains can only come from nprobe (cluster selection), not from m.
+- **Why re-ranking costs little time.** 100 exact distances (about 12.8K multiplies plus 100 random
+  51 KB reads) against scanning nprobe × ~244 codes, plus per-cluster PQ lookup tables.
+- **Why plain PQ isn't faster per cluster than IVF-Flat here.** With nlist = 4096, a list holds only
+  ~244 vectors, so per-cluster PQ set-up (lookup tables of 256 × m entries, residual terms) costs about
+  as much as scanning the raw vectors. m = 64 at nprobe 64: 855 QPS vs IVF-Flat 1,369. *(Likely
+  explanation, not separately measured: say so.)*
+
+**Observation beyond the hypothesis.**
+- At recall 0.95, re-ranked m = 16 took 2,298 QPS vs IVF-Flat 1,926 (+19%, same run) at 1.05× vs
+  1.02× raw memory.
+- Small codes are cheap to scan and good enough to put the true neighbours in the top 100. The exact
+  step then fixes the order.
+- The 19% is within the cross-run noise of D27, but it was measured within one run. Call it "about
+  equal or slightly faster", not a clear win.
+
+**For Q3 ("when the headline numbers mislead").**
+- "IVF-PQ uses 0.15× memory" and "IVF-PQ + re-rank reaches 0.999" are each true, but not at the same
+  time: the re-rank version needs the raw vectors (1.15×).
+- Plain-PQ recall at a single m also hides that re-ranking changes the best m: with re-ranking,
+  m = 16 is enough for 0.95, while without it no m reaches 0.90.
+
+**Not tested:** re-rank depth ≠ 100; nlist ≠ 4096; GloVe; raw vectors on SSD; OPQ.
+
 ## Q1. Fastest at 0.95 on each dataset? Does it change?
 
 | at recall 0.95 | SIFT | GloVe |
@@ -122,7 +174,7 @@ needs the raw vectors again, in RAM or on disk.
 
 ## Q3. What Parts 3 and 4 show, and when the headline numbers could mislead
 
-*(after Parts 3 and 4)*
+*(Part 3 points are in the Part 3 section above; add Part 4 when done.)*
 
 ## Q4. 150K or 10M vectors, 100 ms per query, 16 GB RAM
 

@@ -36,7 +36,14 @@ else
   "$PY" scripts/part2_benchmark.py --results-dir "$RES"
 fi
 
-# Parts 3-4 are added here as they are implemented: scripts/part3_*.py, scripts/part4_*.py
+echo "== Part 3: compression (IVF-PQ m, with vs without exact re-ranking) =="
+if [[ $QUICK -eq 1 ]]; then
+  "$PY" scripts/part3_compression.py --quick --results-dir "$RES"
+else
+  "$PY" scripts/part3_compression.py --results-dir "$RES"
+fi
+
+# Part 4 is added here when implemented: scripts/part4_*.py
 
 echo "== Tables and figures =="
 "$PY" scripts/make_tables.py --results-dir "$RES"

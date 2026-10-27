@@ -94,7 +94,8 @@ def time_search(search: SearchFn, queries: np.ndarray, k: int, mode: str = "sing
     loops = 1
     if n_warmup > 0:
         n_w = min(n_warmup, nq)
-        t0 = time.perf_counter()
+        runner(search, queries[:n_w], k)        # cold: first-call and cache-miss costs
+        t0 = time.perf_counter()                # warm: estimates the per-pass time
         runner(search, queries[:n_w], k)
         est_pass = (time.perf_counter() - t0) * nq / n_w
         if min_repeat_s > 0 and est_pass > 0:
