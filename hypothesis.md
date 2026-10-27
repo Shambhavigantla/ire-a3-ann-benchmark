@@ -5,11 +5,22 @@ The commit history is the evidence. Results and verdicts go in the report, not h
 
 ## Part 3: experiment on the standard data
 
-*Choice:* (scaling / query difficulty / compression)
+*Choice:* compression
 
-*Hypothesis:* (what we expect to happen, and the mechanism behind it)
+*Hypothesis:* 
+Change: On SIFT, vary the number of PQ subvectors (m) across at least three values while holding nlist fixed. For each configuration, evaluate plain IVF-PQ and IVF-PQ followed by exact reranking of the top 100 candidates using the original vectors. Use plain IVF-PQ as the control and IVF-Flat with the same nlist and nprobe as the reference.
 
-*Committed on:* (date, filled in at commit time)
+Predictions:
+
+Increasing (m) will generally improve plain IVF-PQ recall@10 while increasing index memory.
+
+Exact reranking will improve recall by correcting ranking errors among retrieved candidates. Its gain may be larger at smaller (m), where quantization is less precise.
+
+Reranked recall will likely remain below IVF-Flat because reranking cannot recover true neighbours absent from the candidate set.
+
+Reranking will reduce query throughput and require access to the original vectors; their storage will be included in the memory accounting.
+
+Mechanism: Increasing (m) reduces the number of dimensions represented by each subvector and generally improves the precision of the PQ approximation, at the cost of larger codes. Exact reranking corrects ordering errors among the retrieved candidates but cannot recover neighbours excluded during cluster selection or candidate generation. Consequently, post-reranking recall is bounded by candidate coverage.
 
 ## Part 4: experiment on our own data
 
