@@ -1,0 +1,61 @@
+
+=== sift: base (1000000, 128), subset=False ===
+exact single-query QPS (Part 1): 41.2665184766816; call-overhead ceiling: 374,294 QPS
+
+  IVFFlat(nlist=1024): build 3.8s (train 2.0s on 100,000), 496.4 MB, 520.5 B/vec
+    nprobe=1     recall tune 0.3516 test 0.3837 | QPS tune   21396.7 test   20556.6 (0.049 ms, cpu/wall 0.92)
+    nprobe=2     recall tune 0.5124 test 0.5496 | QPS tune   12513.2 test   12755.4 (0.078 ms, cpu/wall 1.00)
+    nprobe=3     recall tune 0.6104 test 0.6463 | QPS tune    9148.4 test    9263.7 (0.108 ms, cpu/wall 0.96)
+    nprobe=4     recall tune 0.6808 test 0.7106 | QPS tune    7468.0 test    7141.3 (0.140 ms, cpu/wall 1.01)
+    nprobe=6     recall tune 0.7693 test 0.7949 | QPS tune    5088.0 test    5093.0 (0.196 ms, cpu/wall 0.99)
+    nprobe=8     recall tune 0.8257 test 0.8455 | QPS tune    3998.9 test    3859.7 (0.259 ms, cpu/wall 0.98)
+    nprobe=12    recall tune 0.8906 test 0.9046 | QPS tune    2736.9 test    2602.4 (0.384 ms, cpu/wall 0.99)
+    nprobe=16    recall tune 0.9263 test 0.9354 | QPS tune    1974.2 test    2016.1 (0.496 ms, cpu/wall 1.00)
+    nprobe=24    recall tune 0.9616 test 0.9666 | QPS tune    1446.0 test    1407.6 (0.710 ms, cpu/wall 1.00)
+    nprobe=32    recall tune 0.9778 test 0.9804 | QPS tune    1092.3 test    1079.3 (0.927 ms, cpu/wall 0.99)
+    nprobe=48    recall tune 0.9910 test 0.9922 | QPS tune     747.1 test     736.3 (1.358 ms, cpu/wall 0.99)
+    nprobe=64    recall tune 0.9959 test 0.9965 | QPS tune     564.7 test     562.0 (1.779 ms, cpu/wall 1.00)
+    nprobe=96    recall tune 0.9989 test 0.9989 | QPS tune     385.2 test     383.2 (2.610 ms, cpu/wall 0.99)
+    nprobe=128   recall tune 0.9998 test 0.9997 | QPS tune     292.6 test     291.6 (3.429 ms, cpu/wall 0.99)
+
+  IVFFlat(nlist=4096): build 20.8s (train 13.7s on 204,800), 497.9 MB, 522.1 B/vec
+    nprobe=1     recall tune 0.2568 test 0.2965 | QPS tune   18284.9 test   17352.2 (0.058 ms, cpu/wall 0.94)
+    nprobe=2     recall tune 0.3886 test 0.4339 | QPS tune   15112.0 test   14882.3 (0.067 ms, cpu/wall 1.00)
+    nprobe=3     recall tune 0.4744 test 0.5229 | QPS tune   13349.5 test   13268.1 (0.075 ms, cpu/wall 0.97)
+    nprobe=4     recall tune 0.5375 test 0.5848 | QPS tune   11675.2 test   11419.5 (0.088 ms, cpu/wall 0.98)
+    nprobe=6     recall tune 0.6316 test 0.6687 | QPS tune   10103.2 test    9911.4 (0.101 ms, cpu/wall 0.98)
+    nprobe=8     recall tune 0.6925 test 0.7251 | QPS tune    8609.8 test    8353.0 (0.120 ms, cpu/wall 0.98)
+    nprobe=12    recall tune 0.7722 test 0.7974 | QPS tune    6584.5 test    6317.3 (0.158 ms, cpu/wall 0.99)
+    nprobe=16    recall tune 0.8225 test 0.8452 | QPS tune    5177.6 test    5328.2 (0.188 ms, cpu/wall 0.98)
+    nprobe=24    recall tune 0.8835 test 0.8971 | QPS tune    3872.3 test    3927.5 (0.255 ms, cpu/wall 1.00)
+    nprobe=32    recall tune 0.9176 test 0.9263 | QPS tune    3079.5 test    3102.9 (0.322 ms, cpu/wall 1.00)
+    nprobe=48    recall tune 0.9531 test 0.9579 | QPS tune    2292.3 test    2247.4 (0.445 ms, cpu/wall 0.99)
+    nprobe=64    recall tune 0.9704 test 0.9731 | QPS tune    1771.0 test    1739.8 (0.575 ms, cpu/wall 1.00)
+    nprobe=96    recall tune 0.9856 test 0.9872 | QPS tune    1232.4 test    1231.9 (0.812 ms, cpu/wall 1.00)
+    nprobe=128   recall tune 0.9924 test 0.9936 | QPS tune     943.9 test     949.6 (1.053 ms, cpu/wall 1.00)
+    nprobe=192   recall tune 0.9970 test 0.9978 | QPS tune     661.8 test     657.7 (1.520 ms, cpu/wall 1.00)
+    nprobe=256   recall tune 0.9987 test 0.9991 | QPS tune     509.2 test     499.1 (2.004 ms, cpu/wall 0.99)
+    nprobe=384   recall tune 0.9998 test 0.9998 | QPS tune     348.5 test     345.7 (2.893 ms, cpu/wall 1.00)
+
+  IVFFlat(nlist=16384): build 244.8s (train 218.1s on 819,200), 504.0 MB, 528.5 B/vec
+    nprobe=1     recall tune 0.2018 test 0.2314 | QPS tune    5413.2 test    5638.7 (0.177 ms, cpu/wall 0.98)
+    nprobe=2     recall tune 0.3092 test 0.3486 | QPS tune    4923.4 test    5299.7 (0.189 ms, cpu/wall 0.99)
+    nprobe=3     recall tune 0.3835 test 0.4271 | QPS tune    5213.5 test    5058.9 (0.198 ms, cpu/wall 0.97)
+    nprobe=4     recall tune 0.4401 test 0.4846 | QPS tune    5084.5 test    5262.1 (0.190 ms, cpu/wall 1.00)
+    nprobe=6     recall tune 0.5240 test 0.5679 | QPS tune    4660.2 test    4742.2 (0.211 ms, cpu/wall 0.98)
+    nprobe=8     recall tune 0.5831 test 0.6273 | QPS tune    4731.2 test    4819.7 (0.207 ms, cpu/wall 0.99)
+    nprobe=12    recall tune 0.6649 test 0.7038 | QPS tune    4632.3 test    4660.7 (0.215 ms, cpu/wall 0.99)
+    nprobe=16    recall tune 0.7204 test 0.7533 | QPS tune    4131.0 test    4381.3 (0.228 ms, cpu/wall 0.99)
+    nprobe=24    recall tune 0.7906 test 0.8169 | QPS tune    3709.4 test    3831.2 (0.261 ms, cpu/wall 0.98)
+    nprobe=32    recall tune 0.8346 test 0.8577 | QPS tune    3593.0 test    3622.1 (0.276 ms, cpu/wall 0.99)
+    nprobe=48    recall tune 0.8877 test 0.9047 | QPS tune    3156.3 test    3132.8 (0.319 ms, cpu/wall 0.96)
+    nprobe=64    recall tune 0.9193 test 0.9307 | QPS tune    2870.8 test    2767.8 (0.361 ms, cpu/wall 1.00)
+    nprobe=96    recall tune 0.9515 test 0.9590 | QPS tune    2342.7 test    2331.2 (0.429 ms, cpu/wall 0.96)
+    nprobe=128   recall tune 0.9677 test 0.9719 | QPS tune    1899.5 test    1939.4 (0.516 ms, cpu/wall 1.00)
+    nprobe=192   recall tune 0.9840 test 0.9863 | QPS tune    1498.0 test    1486.1 (0.673 ms, cpu/wall 0.99)
+    nprobe=256   recall tune 0.9911 test 0.9923 | QPS tune    1219.0 test    1200.0 (0.833 ms, cpu/wall 1.00)
+    nprobe=384   recall tune 0.9961 test 0.9968 | QPS tune     875.9 test     870.3 (1.149 ms, cpu/wall 0.98)
+    nprobe=512   recall tune 0.9981 test 0.9983 | QPS tune     692.6 test     685.9 (1.458 ms, cpu/wall 0.99)
+    nprobe=768   recall tune 0.9994 test 0.9994 | QPS tune     489.3 test     481.4 (2.077 ms, cpu/wall 1.00)
+
+Part 2 done in 10.8 min

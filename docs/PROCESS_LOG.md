@@ -140,9 +140,43 @@ git push
   option).
 - GloVe is much harder than SIFT: every index needs far more work for the same recall.
 
-## Step 3 (cont.): full run results
+## Step 3 (cont.): full run results (done)
 
-*(to be filled in when the full run finishes)*
+- The full run took 68 minutes. We then raised the IVF sweep limit (nprobe up to 1024), because
+  GloVe IVF-Flat was still improving at 512, and reran those builds (about 60 more minutes).
+- 672 result rows. CPU/wall stayed between 0.94 and 1.06, so every timing really used 1 thread.
+
+**Headline numbers (speed at recall 0.95, one query at a time, 1 thread)**
+
+| | SIFT (1M) | GloVe (1.18M) |
+|---|---|---|
+| HNSW | **8,246 QPS** (200× exact), M=32, ef=48 | **889 QPS** (21×), M=32, ef=384 |
+| IVF-Flat | 2,331 QPS (56×), nlist=16384, nprobe=96 | about 360 QPS (8×); two settings tie |
+| IVF-PQ | never reaches 0.95 (best 0.884) | never reaches 0.95 (best 0.869) |
+| Exact | 41 QPS | 43 QPS |
+
+**What it means, in plain words**
+- **HNSW is fastest on both datasets** at 0.90 and at 0.95. It walks a graph straight towards the
+  answer, while IVF scans whole clusters.
+- **GloVe is about 10× harder than SIFT** for the same recall. Word vectors don't form tight clusters,
+  and many points are almost equally far from a query, so every index has to look at many more
+  candidates.
+- **IVF-PQ can't reach high recall.** Each vector is squeezed to 26–74 bytes instead of 400–512, so
+  its distances are approximate. Several true neighbours end up ranked just outside the top 10, and
+  probing more clusters doesn't help (the curve goes vertical). Fix: re-rank the top candidates with
+  exact distances.
+- **Memory:** HNSW uses 1.5–1.7× the raw vectors (it stores the graph links), IVF-Flat 1.03×, and
+  IVF-PQ only 0.15×.
+- **Build time:** IVF-Flat is quickest (4–20 s) unless nlist is huge (16384 needs 4–7 minutes of
+  k-means). HNSW takes 40–120 s; IVF-PQ 50–80 s, mostly codebook training.
+
+**A measurement lesson.** Recall came out identical in both runs. Speed for the same setting changed
+by up to ±30–40% between the two runs, probably from background Windows activity while the PC was
+locked. Within a run the repeats agree within a few percent. So:
+(1) only compare speeds from the same run;
+(2) small differences (for example GloVe IVF-Flat 357 vs 356 QPS) mean nothing;
+(3) the final report numbers must come from one clean `bash run_all.sh` on an idle machine.
+This also answers report Q5 ("how could the benchmark mislead?"). See DESIGN_NOTES D27.
 
 ## Step 4: Part 3 experiment (not started)
 

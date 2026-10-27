@@ -17,10 +17,10 @@ Status: ✅ done · 🟡 code done, waiting on the full run · ⬜ not started.
 | T1b | Exact search QPS: single query vs batch (1 thread and all threads) | 1 | `tables/t1b_exact_timing.*` | ✅ |
 | F1 | Bar chart of exact search, single vs batch | 1 | `figures/fig1_exact_single_vs_batch.*` | ✅ |
 | — | Unit tests for recall@10 | 1 | `tests/test_metrics.py` | ✅ |
-| F2 | Recall@10 vs QPS, best trade-off curve per index plus the exact baseline, one plot per dataset (plus a side-by-side version) | 2 | `figures/fig2_pareto_{sift,glove}.*`, `fig2_pareto.*` | 🟡 |
-| T2a | QPS of each index at recall 0.90 and 0.95 | 2 | `tables/t2a_qps_at_recall.*` | 🟡 |
-| T2b | Build time, index size and bytes per vector for each index at recall 0.95 | 2 | `tables/t2b_cost_at_095.*` | 🟡 |
-| T2c | Highest recall each build setting reaches (supports the "why an index fails" text) | 2 | `tables/t2c_max_recall.*` | 🟡 |
+| F2 | Recall@10 vs QPS, best trade-off curve per index plus the exact baseline, one plot per dataset (plus a side-by-side version) | 2 | `figures/fig2_pareto_{sift,glove}.*`, `fig2_pareto.*` | ✅ (final run pending, D27) |
+| T2a | QPS of each index at recall 0.90 and 0.95 | 2 | `tables/t2a_qps_at_recall.*` | ✅ (final run pending, D27) |
+| T2b | Build time, index size and bytes per vector for each index at recall 0.95 | 2 | `tables/t2b_cost_at_095.*` | ✅ (final run pending, D27) |
+| T2c | Highest recall each build setting reaches (supports the "why an index fails" text) | 2 | `tables/t2c_max_recall.*` | ✅ (final run pending, D27) |
 | — | Why an index fails to reach high recall (text) | 2 | report | ⬜ |
 | F3 | Part 3 main figure | 3 | `figures/fig3_*` | ⬜ |
 | — | Part 3 hypothesis committed before running | 3 | `hypothesis.md` | ⬜ |
@@ -246,6 +246,31 @@ and SIFT IVF-Flat. SIFT IVF-PQ had already plateaued below 512. The first full r
 *HNSW caps that were left alone:* GloVe HNSW with M=8 (0.865) and M=16 (0.952) still end at
 efSearch=1024. Both are dominated by M=32 at every recall they reach, so a higher cap would only add
 slow, dominated points. The report must not present "M=8 reaches 0.865" as that build's ceiling.
+
+**D27. Speed is reproducible within a run but varies ±30–40% between runs; recall is exactly
+reproducible.** The D26 rerun repeated 175 (build, search) settings from the first full run:
+
+| Rerun builds | Recall change | QPS rerun ÷ first run, median (range) |
+|---|---|---|
+| SIFT IVF-Flat (49 settings) | 0 | 0.99 (0.93–1.05) |
+| GloVe IVF-Flat (54) | 0 | 0.92 (0.69–1.21) |
+| GloVe IVF-PQ (72) | 0 | 1.20 (0.86–1.43) |
+
+The same GloVe nlist=16384 build took 221 s in the first run and 396 s in the rerun. The machine was
+busier during part of one run: it was locked overnight, so Windows maintenance tasks are a likely
+cause. Within a run, the 3 repeats agree within a few percent and CPU/wall ≤ 1.06, so the noise is
+between runs, not within one.
+*Consequences:*
+1. Only compare QPS from the same run. The GloVe IVF-Flat choice at 0.95 swapped between
+   nlist=16384/nprobe=1024 (357 QPS) and nlist=4096/nprobe=384 (356 QPS). Those are identical
+   within noise, so the report should say "IVF-Flat ≈ 360 QPS", not argue over which nlist wins.
+2. Conclusions that rest on gaps much larger than 40% are safe: HNSW 3.5× faster than IVF-Flat on
+   SIFT at 0.95, 2.5× on GloVe; IVF-PQ never reaching 0.90; exact search 20–200× slower.
+3. **Final numbers must come from one uninterrupted `bash run_all.sh` on an idle machine:** other
+   apps closed, plugged in, Windows Update paused. The current `results.csv` mixes two runs (HNSW and
+   SIFT IVF-PQ from the first; the IVF reruns from the second).
+4. This is a ready answer to report Q5 ("ways the benchmark could mislead"), and it was tested.
+5. Build times are single measurements, so they are just as noisy. Treat them as rough sizes.
 
 ## Part 3
 
