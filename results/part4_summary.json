@@ -1,0 +1,89 @@
+{
+  "n_db": 400000,
+  "n_new": 100000,
+  "sigma": 384.51893862919917,
+  "shifts": [
+    0.0,
+    0.5,
+    1.0,
+    2.0
+  ],
+  "direction_seed": 1234,
+  "fixed_fraction": 0.95,
+  "query_groups": {
+    "old-tune": [
+      0,
+      2500
+    ],
+    "new-tune": [
+      2500,
+      5000
+    ],
+    "old-test": [
+      5000,
+      7500
+    ],
+    "new-test": [
+      7500,
+      10000
+    ]
+  },
+  "true_nn_new_share": {
+    "0.0": {
+      "old": 0.2298,
+      "new": 0.22612
+    },
+    "0.5": {
+      "old": 0.001,
+      "new": 0.98556
+    },
+    "1.0": {
+      "old": 0.0,
+      "new": 1.0
+    },
+    "2.0": {
+      "old": 0.0,
+      "new": 1.0
+    }
+  },
+  "exact_single_qps": {
+    "D": 87.91924125343468,
+    "D'": 69.66896477875041
+  },
+  "time_queries_per_group": 500,
+  "repeats": 3,
+  "min_repeat_s": 0.2,
+  "pinning": "1 thread, pinned to P-cores 0-11",
+  "build_threads": 20,
+  "indexes": {
+    "HNSW": {
+      "spec": {
+        "M": 16,
+        "efConstruction": 200
+      },
+      "states": [],
+      "fixed_knob": 48,
+      "target_recall": 0.949392,
+      "baseline_build_s": 32.199398400000064
+    },
+    "IVFFlat": {
+      "spec": {
+        "nlist": 2048
+      },
+      "states": [],
+      "fixed_knob": 48,
+      "target_recall": 0.9491640000000001,
+      "baseline_build_s": 8.68115139999827
+    },
+    "IVFPQ": {
+      "spec": {
+        "nlist": 2048,
+        "m": 32
+      },
+      "states": [],
+      "fixed_knob": 24,
+      "target_recall": 0.70452,
+      "baseline_build_s": 37.81347160000041
+    }
+  }
+}

@@ -214,6 +214,54 @@ re-ranking fix PQ's mistakes? The hypothesis was written and committed first (`0
 **Also fixed:** the timing helper now estimates how many loops it needs from a warm pass, not the
 slow first call (D29).
 
-## Step 5: Part 4 experiment on our own data (not started)
+## Step 5: Part 4, drift on our own data (done)
+
+**What we asked.** A new group of vectors appears somewhere the index never saw. If we just insert it,
+how does each index cope, and does rebuilding help? Hypothesis committed first (`81de567`).
+
+**The data** (`ann_bench/synthetic.py`, seeded)
+- D = the first 400K SIFT vectors.
+- New cluster = the next 100K SIFT vectors, all moved by the same arrow: a random direction (seed
+  1234) times s × 385. 385 is how spread out D is: the RMS distance of D from its mean.
+- s = 0 is the control (more ordinary SIFT data); then 0.5, 1 and 2. 500K vectors in total.
+- Moving all the vectors by the same arrow keeps the cluster's internal shape, so it is exactly as
+  hard to search as normal SIFT. Only *where* it is changes.
+- Queries: half the queries stay as they are ("old region"); the other half move with the cluster
+  ("new region").
+
+**What we did** (`scripts/part4_drift.py`; design in DESIGN_NOTES D31). For HNSW, IVF-Flat and
+IVF-PQ:
+1. Build on D (baseline).
+2. For each s:
+   - copy the baseline index and *insert* the new vectors, with no retraining (incremental);
+   - build a fresh index on everything (rebuilt).
+3. Each index keeps one search setting, chosen on the baseline.
+4. Measure recall, speed and work per query for both query groups, plus "why" statistics: how full
+   the IVF lists get, how badly PQ encodes the new vectors, and how HNSW links them.
+
+33 minutes; CPU/wall 0.90–1.04 on all 784 timed rows.
+
+**What we saw** (tables t4a–c, figure fig4_drift)
+- **Even the smallest shift separates the neighbours.** At 0.5σ, 98.6% of a new-region query's
+  true neighbours are new vectors. The query's neighbours moved with it.
+- **IVF-PQ breaks.** New-region recall at its fixed setting goes 0.72 (control) → 0.65 → 0.52 →
+  0.30. Its codebooks were learned on old data and can't describe the new vectors: their encoding
+  error is 2.6×, 9× and 55× that of old vectors. Turning nprobe up doesn't fix it (best 0.68, 0.54,
+  0.30). Rebuilding fixes it completely (0.75).
+- **IVF-Flat keeps its recall, but slows down.** At 2σ, 90% of the new vectors pile into 240 of
+  2,048 lists near the old data's edge (the largest list grows from 1,117 to 2,897). A query there
+  scans 1.9× more vectors and runs at 0.54× the speed. Rebuilding gives the cluster its own lists:
+  recall 0.997 at 2.1× the speed.
+- **HNSW barely notices** (recall 0.95–0.98 at every shift). New nodes link almost only to each other
+  (99.9% at 1σ). Only a few hundred to a few thousand links join them to the old graph, yet searches
+  still find their way. Rebuilding changes little.
+- **Old-region queries are not affected** (within ±0.01 everywhere).
+- **Maintenance:** inserting 100K vectors takes 0.4–1.2 s (IVF) or 5–9 s (HNSW). Rebuilding takes
+  9 s (IVF-Flat), 37–39 s (IVF-PQ) or 38–41 s (HNSW).
+- **Verdict:** rebuilding is essential for IVF-PQ, worth it for IVF-Flat at large shifts, and not
+  needed for HNSW.
+
+**Also done for the 15-minute `--quick` limit:** one pause per timing block instead of two, and a
+faster strict-recall function (same results; D30).
 
 ## Step 6: report (not started)

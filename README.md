@@ -40,18 +40,22 @@ code/
 │   ├── plotting.py         ✅ shared figure style and fixed per-index colours
 │   ├── indexes.py          ✅ P2: build HNSW / IVF-Flat / IVF-PQ (seeded), set efSearch / nprobe
 │   ├── frontier.py         ✅ P2: best trade-off curve, tune/test selection at recall 0.90 / 0.95
-│   └── synthetic.py        ⬜ P4: seeded data generator
+│   ├── synthetic.py        ✅ P4: seeded drift generator (SIFT vectors translated by s·σ)
+│   ├── diagnostics.py      ✅ P4: IVF list balance, PQ error, HNSW links, distances per query
+│   └── drift_report.py     ✅ P4: reads Part 4 rows back for tables and figures
 ├── scripts/
 │   ├── part1_exact.py      ✅ exact baseline, check against the file, single vs batch timing
 │   ├── part2_benchmark.py  ✅ build × search sweeps on both datasets (--quick, --resume, --indexes)
-│   ├── part3_<choice>.py   ⬜
-│   ├── part4_<choice>.py   ⬜
+│   ├── part3_compression.py ✅ IVF-PQ m, plain vs exact re-ranking of the top 100, vs IVF-Flat
+│   ├── part4_drift.py      ✅ new shifted cluster: inserted vs rebuilt, HNSW / IVF-Flat / IVF-PQ
 │   ├── make_tables.py      ✅ results/ → results/tables/*.md and *.tex
 │   └── make_figures.py     ✅ results/ → results/figures/*.png and *.pdf
-├── tests/                  ✅ unit tests (recall, timing, data, frontier) + FAISS index tests
+├── tests/                  ✅ unit tests (recall, timing, data, frontier, Part 3 coverage, Part 4 generator) + FAISS tests
 ├── docs/
 │   ├── DESIGN_NOTES.md     ✅ decisions and rationale, plus the checklist of required outputs
-│   └── PROCESS_LOG.md      ✅ plain-language log of each step
+│   ├── PROCESS_LOG.md      ✅ plain-language log of each step
+│   ├── REPORT_NOTES.md     ✅ observations, numbers and mechanisms for the report
+│   └── HYPOTHESIS_GUIDE.md ✅ how the Part 3/4 hypotheses were approached
 ├── report/                 ⬜ report source → report.pdf (≤ 5 pages)
 ├── results/                full-run outputs (submitted)
 │   ├── results.csv         one row per benchmark run

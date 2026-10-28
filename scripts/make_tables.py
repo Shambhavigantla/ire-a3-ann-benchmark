@@ -15,6 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from ann_bench.drift_report import INDEX_ORDER as P4_ORDER, at_knob, knob_for_target, load_part4, shifts  # noqa: E402
 from ann_bench.frontier import group_configs, select_config  # noqa: E402
 from ann_bench.tables import fmt, read_results, write_table  # noqa: E402
 
@@ -293,7 +294,97 @@ def table_part3(res_dir, out_dir):
     return written
 
 
-PARTS = {0: table_machine, 1: table_part1, 2: table_part2, 3: table_part3}
+P4_KNOB = {"HNSW": "ef", "IVFFlat": "nprobe", "IVFPQ": "nprobe"}
+
+
+def _p4_state_rows(states, summary):
+    """Yield (kind, label, shift, state_name, st) in report order."""
+    for kind in P4_ORDER:
+        if (kind, "baseline", None) not in states:
+            continue
+        yield kind, "baseline (D)", None, "baseline", states[(kind, "baseline", None)]
+        for s in shifts(summary):
+            for name in ("incremental", "rebuilt"):
+                st = states.get((kind, name, s))
+                if st:
+                    yield kind, name, s, name, st
+
+
+def table_part4(res_dir, out_dir):
+    states, summary = load_part4(res_dir)
+    if not states:
+        return []
+    written = []
+    shift_txt = lambda s: "–" if s is None else f"{s:g}σ"   # noqa: E731
+
+    # T4a: everything at the fixed (baseline-chosen) knob.
+    t4a = []
+    for kind, label, s, _, st in _p4_state_rows(states, summary):
+        fixed = summary["indexes"][kind]["fixed_knob"]
+        o, n = at_knob(st, fixed, "old"), at_knob(st, fixed, "new")
+        t4a.append([INDEX_NAMES[kind], f"{P4_KNOB[kind]}={fixed}", shift_txt(s), label,
+                    f"{o['recall']:.4f}" if o else "–", f"{n['recall']:.4f}" if n else "–",
+                    f"{o['qps']:,.0f}" if o else "–", f"{n['qps']:,.0f}" if n else "–",
+                    f"{n['ndis']:,.0f}" if n else "–", fmt(st["maintenance_s"], 2),
+                    fmt(st["size"] / 2**20, 1)])
+    n_db, n_new = summary["n_db"], summary["n_new"]
+    written += write_table(
+        t4a, ["Index", "Fixed setting", "Shift s", "State", "Recall old", "Recall new", "QPS old",
+              "QPS new", "Dist./query new", "Maintenance (s)", "Index (MB)"],
+        "t4a_drift_fixed_setting", out_dir, align="llll" + "r" * 7,
+        caption=f"Part 4: D = {n_db:,} SIFT vectors; a new cluster of {n_new:,} SIFT vectors moved by "
+                f"s·σ (σ = {summary['sigma']:.0f}, RMS distance of D from its mean) is inserted (incremental: "
+                "no retraining) or the index is rebuilt on D′. Each index keeps one search setting, chosen on "
+                f"the baseline as the smallest reaching {summary['fixed_fraction']:.2f}× its best baseline "
+                "recall. Old / new = original-region / new-region test queries; recall against exact search "
+                "on the database searched. Maintenance = insertion time (incremental) or full build (rebuilt "
+                "and baseline), all threads.")
+
+    # T4b: mechanism statistics.
+    t4b = []
+    for kind, label, s, _, st in _p4_state_rows(states, summary):
+        m = st["mechanism"]
+        if kind == "HNSW":
+            detail = (f"mean degree {m['mean_degree']:.1f}" if "new_links_to_new" not in m else
+                      f"new→new links {m['new_links_to_new']:.1%}; old nodes linking new "
+                      f"{m['old_nodes_linking_new']:.1%}; old→new links {m['old_to_new_links']:,}")
+        else:
+            detail = f"imbalance {m['imbalance']:.2f}; largest list {m['max_list']:,} (mean {m['mean_list']:.0f})"
+            if m.get("n_new"):
+                detail += (f"; 90% of new vectors in {m['lists_holding_90pct_new']:,} of {m['nlist']:,} lists; "
+                           f"largest list {m['new_share_of_largest_list']:.0%} new")
+            if kind == "IVFPQ":
+                detail += (f"; PQ error new/old {m['pq_mse_ratio']:.2f}×" if "pq_mse_ratio" in m
+                           else f"; PQ error (old) {m['pq_mse_old']:,.0f}")
+        t4b.append([INDEX_NAMES[kind], shift_txt(s), label, detail])
+    written += write_table(
+        t4b, ["Index", "Shift s", "State", "Mechanism statistics"], "t4b_drift_mechanism", out_dir,
+        align="lllp{10cm}",
+        caption="Part 4 mechanism statistics. IVF imbalance = nlist·Σ size² / N² (1 = equal lists; ≈ expected "
+                "vectors scanned per probe relative to equal lists). PQ error = mean squared reconstruction "
+                "error of 5,000 new vectors divided by that of 5,000 old vectors. HNSW: level-0 links.")
+
+    # T4c: cost of bringing new-region recall back to the target, by re-tuning.
+    t4c = []
+    for kind, label, s, name, st in _p4_state_rows(states, summary):
+        target = summary["indexes"][kind]["target_recall"]
+        k = knob_for_target(st, "new", target)
+        cell = at_knob(st, k, "new") if k is not None else None
+        best = max(c["new-test"]["recall"] for c in st["knobs"].values() if "new-test" in c)
+        t4c.append([INDEX_NAMES[kind], f"{target:.3f}", shift_txt(s), label,
+                    f"{P4_KNOB[kind]}={k}" if cell else f"not reached (best {best:.3f})",
+                    f"{cell['recall']:.4f}" if cell else "–", f"{cell['qps']:,.0f}" if cell else "–",
+                    f"{cell['ndis']:,.0f}" if cell else "–"])
+    written += write_table(
+        t4c, ["Index", "Target", "Shift s", "State", "Setting needed (new region)", "Test recall", "QPS",
+              "Dist./query"], "t4c_drift_retune", out_dir, align="llll" + "r" * 4,
+        caption="Part 4: the smallest search setting at which the new-region tune queries reach the index's "
+                "target recall (the same target that fixed its setting on the baseline), and the new-region "
+                "test recall and QPS there.")
+    return written
+
+
+PARTS = {0: table_machine, 1: table_part1, 2: table_part2, 3: table_part3, 4: table_part4}
 
 
 def main():

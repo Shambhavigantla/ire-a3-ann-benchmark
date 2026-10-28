@@ -26,8 +26,11 @@ Status: ✅ done · 🟡 code done, waiting on the full run · ⬜ not started.
 | T3a | Part 3 per method and m: memory, build time, best recall, QPS at 0.90/0.95 | 3 | `tables/t3a_compression_summary.*` | ✅ (final run pending, D27) |
 | T3b | Part 3 at equal nprobe: re-rank gain, coverage, gap to IVF-Flat, QPS ratio | 3 | `tables/t3b_rerank_fixed_nprobe.*` | ✅ (final run pending, D27) |
 | — | Part 3 hypothesis committed before running | 3 | `hypothesis.md` (commit `0b6391d`) | ✅ |
-| F4 | Part 4 main figure (one figure, at most one page) | 4 | `figures/fig4_*` | ⬜ |
-| — | Part 4 hypothesis committed before running; seeded generator | 4 | `hypothesis.md`, `ann_bench/synthetic.py` | ⬜ |
+| F4 | Part 4 main figure: new-region recall, work per query, QPS after re-tuning vs shift (inserted vs rebuilt) | 4 | `figures/fig4_drift.*` | ✅ (final run pending, D27) |
+| T4a | Part 4 at the fixed setting: recall and QPS (old and new region), maintenance time, size | 4 | `tables/t4a_drift_fixed_setting.*` | ✅ (final run pending, D27) |
+| T4b | Part 4 mechanism statistics: IVF list balance, PQ error new/old, HNSW links | 4 | `tables/t4b_drift_mechanism.*` | ✅ (final run pending, D27) |
+| T4c | Part 4 setting needed to bring the new region back to the target, and its QPS | 4 | `tables/t4c_drift_retune.*` | ✅ (final run pending, D27) |
+| — | Part 4 hypothesis committed before running; seeded generator | 4 | `hypothesis.md` (commit `81de567`), `ann_bench/synthetic.py` | ✅ |
 | — | `results.csv`: one row per run behind every reported number | all | `results.csv` | 🟡 |
 | — | Report ≤ 5 pages answering Q1–Q5 | 5 | `report/` → `report.pdf` | ⬜ |
 | — | `ai_log/` and `ai_statement.md` (outside `code/`, at the top level of the zip) | — | `../ai_log/` | 🟡 |
@@ -319,6 +322,104 @@ the second, warm pass. This affects only how many times each repeat loops over t
 how QPS is computed (queries × loops ÷ median time). Parts 1–2 results stay valid, and the final clean
 `run_all.sh` uses the fixed code throughout.
 
+### D30. Timing details changed while preparing Part 4 (no effect on what is measured)
+1. **Pause only before the first timing after a multi-threaded step.** The 0.25 s pause (D24) lets
+   OpenMP workers from the preceding all-thread recall search go idle. The second timing in the same
+   1-thread block follows single-thread work only, so no worker can be spinning, and it skips the
+   pause. This applies to Parts 2, 3 and 4.
+2. **Vectorised `strict_recall_at_k`.** It used a Python loop with `np.intersect1d` per query, which
+   took 19 s of a 114 s quick IVF-Flat run. The new version gives the same output: it matched the old
+   loop on 10,000 random rows, and the unit tests pass.
+
+These two changes, and D29, are why `run_all.sh --quick` fits in 15 minutes with Part 4 added.
+
 ## Part 4
 
-*(question, generator, control, settings)*
+### D31. Part 4: drift. A shifted cluster appears; incremental insertion vs rebuild
+*Hypothesis:* `hypothesis.md`, committed (`81de567`) before any Part 4 code was written or run.
+
+**Generator** (`ann_bench/synthetic.py`, seeded):
+- D = SIFT base[0:400K]. The new cluster = SIFT base[400K:500K] + s·σ·u.
+  - u is a random unit direction, seed 1234, the same for every s.
+  - σ = RMS distance of D from its mean = 385.
+- At most 500K vectors in total, as the assignment requires.
+- It is a translation of real vectors, so all distances inside the new cluster are unchanged (unit
+  test). The new cluster is as hard to search as real SIFT; only its position relative to the old data
+  and to what each index learned changes. That isolates the one property varied.
+- **Control** s = 0: 100K more real SIFT vectors, not moved.
+- **Settings** s = 0.5, 1, 2. They were chosen from statistics of D before any index was run:
+
+| s | Shift | Compared with the data | Where the new cluster sits | True top-10 of new-region queries that are new vectors (measured) |
+|---|---|---|---|---|
+| 0 (control) | 0 | – | mixed into D | 22.6% (≈ their 20% share of D′) |
+| 0.5 | 192 | below the median 1st-neighbour distance (205) | inside the old data's region | 98.6% |
+| 1 | 385 | between the 10th-neighbour distance (238) and the mean random-pair distance (533) | at its edge | 100% |
+| 2 | 769 | beyond the farthest point of D from its mean (474) | completely outside | 100% |
+
+  *Correction made after the ground truth was computed:* even at s = 0.5 the new-region queries'
+  neighbours are almost all new vectors. A moved query's own neighbours moved with it, at distance
+  ≈ d_nn ≈ 205–238. An old vector is then roughly √(d_nn² + shift²) away, beyond those neighbours. So
+  the shift setting controls *where* the new cluster lies relative to the old data and to the learned
+  centroids and codebooks, not whether old and new vectors share neighbour lists. Old-region queries
+  have 0.1% (s = 0.5) or 0% new neighbours. The script stores these shares in `part4_summary.json`
+  (`true_nn_new_share`).
+
+**Queries.** The tune/test halves are kept, and each is split into two disjoint groups:
+- *old*: queries [0:2500] tune and [5000:7500] test, untranslated;
+- *new*: queries [2500:5000] and [7500:10000], moved by the same s·σ·u.
+
+Ground truth is exact search (FAISS Flat) on the database searched, D for the baseline or D′ₛ after
+the update, with the Part 1 tie rule.
+
+**Indexes:** fixed build settings, chosen from Part 2 and scaled to N ≈ 400–500K.
+- HNSW: M = 16, efC = 200.
+- IVF-Flat: nlist = 2048 (≈ 4√N).
+- IVF-PQ: nlist = 2048, m = 32. That is Part 3's middle code size; 32 bytes keep PQ error moderate,
+  so drift is not hidden by an already-low ceiling.
+- Quick mode: 80K + 20K, nlist = 512, IVF-PQ m = 8.
+
+**States per index** (the hypothesis's Steps 1–5):
+1. **Baseline:** built on D.
+2. **Incremental**, for each s: a copy of the baseline index plus `add()` of the new vectors, with no
+   retraining. IVF keeps its centroids and PQ keeps its codebooks. HNSW inserts each vector by
+   searching the existing graph.
+3. **Rebuilt**, for each s: a fresh `build_index` on D′ₛ, with the same seed and a sample of D′ₛ
+   (which includes the new vectors) for IVF/PQ training.
+
+**Comparable search settings.**
+- Each index gets one **fixed knob**, chosen on the baseline tune *old* queries as the smallest value
+  reaching 0.95 × its best baseline recall. This is ≈ 0.95 for HNSW and IVF-Flat. IVF-PQ plateaus
+  below 0.95 (Part 3), so it needs a relative target to have any comparable setting.
+- Every state is measured at this knob (T4a), and the sweep never stops before it.
+- T4c also gives the smallest knob at which the *new* group's tune recall reaches the same target,
+  and its test QPS. That is the cost of fixing drift by re-tuning instead of rebuilding.
+
+**Metrics** (test queries; same timing protocol as Part 2, with 500 timed queries per group):
+- recall@10 and QPS for each group, and distance computations per query (FAISS search statistics);
+- maintenance time: the `add()` time for incremental, the full train + add for rebuilt (all threads);
+- index size.
+
+**Mechanism statistics** (T4b), measured per state:
+- **IVF:** list imbalance (nlist · Σ size² / N²), the largest list, how many lists hold 90% of the new
+  vectors, and the share of new vectors in the largest list.
+- **IVF-PQ:** reconstruction error (`sa_encode`/`sa_decode`) of 5,000 new vectors ÷ that of 5,000 old
+  vectors.
+- **HNSW** level-0 links: the share of new nodes' links that point to new nodes; the share of old
+  nodes with at least one link to a new node; and old→new link counts.
+
+**Figure (F4):** x = shift (0 is the control); solid = incremental, dashed = rebuilt.
+- (a) New-region recall at the fixed knob; dotted lines show the baseline.
+- (b) New-region distance computations per query ÷ the control (s = 0 incremental).
+- (c) New-region QPS at the target after re-tuning ÷ the control.
+
+(b) and (c) divide by the control, not the baseline. D has 20% fewer vectors than D′, so dividing by
+the baseline would mix database growth into the drift effect.
+
+*Not tested:*
+- rotations, or several new clusters;
+- a growing fraction of new vectors (it is fixed at 20%);
+- deletions (FAISS HNSW can't delete);
+- other build settings (nlist, M, m);
+- GloVe;
+- query-only drift with no inserted vectors;
+- partial retraining (e.g. re-running k-means only on the lists that grew).

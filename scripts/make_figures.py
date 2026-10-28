@@ -211,7 +211,75 @@ def fig_part3(res_dir, fig_dir):
     return save_figure(fig, "fig3_compression", fig_dir)
 
 
-PARTS = {1: fig_part1, 2: fig_part2, 3: fig_part3}
+def fig_part4(res_dir, fig_dir):
+    """Fig 4: drift. New-region recall, work per query and cost of re-tuning vs shift size."""
+    from ann_bench.drift_report import INDEX_ORDER as P4_ORDER, at_knob, knob_for_target, load_part4, shifts
+
+    states, summary = load_part4(res_dir)
+    if not states:
+        return []
+    ss = shifts(summary)
+    kinds = [k for k in P4_ORDER if (k, "baseline", None) in states]
+    styles = {"incremental": ("-", "inserted, not retrained"), "rebuilt": ("--", "rebuilt on D′")}
+    fig, axes = plt.subplots(1, 3, figsize=(11.0, 3.4))
+    a, b, c = axes
+    for kind in kinds:
+        col, mk = COLORS[kind], MARKERS[kind]
+        info = summary["indexes"][kind]
+        fixed, target = info["fixed_knob"], info["target_recall"]
+        base_new = at_knob(states[(kind, "baseline", None)], fixed, "new")
+        # (b), (c) are relative to the CONTROL (s = 0 inserted): same database size as every
+        # D'_s, so a ratio != 1 is caused by the shift, not by the database growing.
+        ctrl = states[(kind, "incremental", 0.0)]
+        ctrl_new = at_knob(ctrl, fixed, "new")
+        kc = knob_for_target(ctrl, "new", target)
+        ctrl_retune = at_knob(ctrl, kc, "new") if kc is not None else None
+        for name, (ls, _) in styles.items():
+            rec, work, qps = [], [], []
+            for s in ss:
+                st = states.get((kind, name, s))
+                cell = at_knob(st, fixed, "new") if st else None
+                rec.append(cell["recall"] if cell else np.nan)
+                work.append(cell["ndis"] / ctrl_new["ndis"] if cell else np.nan)
+                k = knob_for_target(st, "new", target) if st else None
+                cell_t = at_knob(st, k, "new") if k is not None else None
+                qps.append(cell_t["qps"] / ctrl_retune["qps"] if cell_t and ctrl_retune else np.nan)
+            kw = dict(color=col, ls=ls, marker=mk, markersize=4, lw=1.8,
+                      markerfacecolor=col if name == "incremental" else "white")
+            a.plot(ss, rec, **kw)
+            b.plot(ss, work, **kw)
+            c.plot(ss, qps, **kw)
+            if name == "incremental":   # mark settings where re-tuning cannot reach the target
+                for s, q in zip(ss, qps):
+                    if np.isnan(q):
+                        c.annotate("✕ target\nnot reached", (s, 0.02), xycoords=("data", "axes fraction"),
+                                   ha="center", va="bottom", fontsize=6.5, color=col)
+        a.axhline(base_new["recall"], color=col, lw=0.8, ls=":", alpha=0.8)
+    for ax in axes:
+        ax.set_xticks(ss, [f"{s:g}σ" + (" (control)" if s == 0 else "") for s in ss], fontsize=7.5)
+        ax.set_xlabel("Shift of the new cluster")
+    a.set_ylabel("Recall@10, new-region queries")
+    a.set_title("(a) Recall at the fixed setting", loc="left")
+    b.set_ylabel("Distance computations / query\n(new region, ÷ control)")
+    b.axhline(1, color=INK_SECONDARY, lw=0.8, ls=":")
+    b.set_title("(b) Work per query at the fixed setting", loc="left")
+    c.set_ylabel("QPS at target recall\n(new region, ÷ control)")
+    c.axhline(1, color=INK_SECONDARY, lw=0.8, ls=":")
+    c.set_ylim(bottom=0)
+    c.set_title("(c) Speed after re-tuning to the target", loc="left")
+
+    from matplotlib.lines import Line2D
+    handles = [Line2D([], [], color=COLORS[k], marker=MARKERS[k], lw=1.8, label=INDEX_NAMES[k]) for k in kinds]
+    handles += [Line2D([], [], color=INK_SECONDARY, ls=ls, marker="o", markersize=4,
+                       markerfacecolor=INK_SECONDARY if n == "incremental" else "white", label=lab)
+                for n, (ls, lab) in styles.items()]
+    handles.append(Line2D([], [], color=INK_SECONDARY, ls=":", lw=0.8, label="(a) baseline on D; (b, c) control = 1"))
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.1), ncol=len(handles))
+    fig.tight_layout()
+    return save_figure(fig, "fig4_drift", fig_dir)
+
+
+PARTS = {1: fig_part1, 2: fig_part2, 3: fig_part3, 4: fig_part4}
 
 
 def main():

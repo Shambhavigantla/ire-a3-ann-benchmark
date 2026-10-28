@@ -93,10 +93,11 @@ def sweep(methods, ds, splits, ctx, args):
                         coverage[name] = float(coverage_at_k(cand, ds.base, q, gt, k=K).mean())
             timing = {}
             with pinned_to(ctx["pcores"]), limit_threads(1):
-                for name, q in (("tune", q_tune[:args.tune_time_queries]),
-                                ("test", q_test[:args.test_time_queries])):
+                for i, (name, q) in enumerate((("tune", q_tune[:args.tune_time_queries]),
+                                               ("test", q_test[:args.test_time_queries]))):
+                    # settle only before the first timing after the multi-threaded step (D30)
                     timing[name] = time_search(m.search, q, K, "single", args.repeats,
-                                               min_repeat_s=args.min_repeat_s)
+                                               min_repeat_s=args.min_repeat_s, settle_s=0.25 if i == 0 else 0.0)
             for name in ("tune", "test"):
                 tr = timing[name]
                 if tr.cpu_per_wall > 1.3 and tr.median_s >= 0.05:
@@ -144,18 +145,18 @@ def main():
     p.add_argument("--quick", action="store_true", help="first 100K vectors and the quick grid")
     p.add_argument("--data-dir", default="data")
     p.add_argument("--results-dir", default=None, help="default: results/ (results/quick/ with --quick)")
-    p.add_argument("--tune-time-queries", type=int, default=None, help="default 500 (quick: 200)")
-    p.add_argument("--test-time-queries", type=int, default=None, help="default 2000 (quick: 300)")
+    p.add_argument("--tune-time-queries", type=int, default=None, help="default 500 (quick: 100)")
+    p.add_argument("--test-time-queries", type=int, default=None, help="default 2000 (quick: 200)")
     p.add_argument("--repeats", type=int, default=3)
-    p.add_argument("--min-repeat-s", type=float, default=None, help="default 0.2 (quick: 0.1)")
+    p.add_argument("--min-repeat-s", type=float, default=None, help="default 0.2 (quick: 0.05)")
     p.add_argument("--threads", type=int, default=None, help="threads for building and recall")
     p.add_argument("--no-pin", action="store_true")
     args = p.parse_args()
     args.results_dir = args.results_dir or ("results/quick" if args.quick else "results")
-    args.tune_time_queries = args.tune_time_queries or (200 if args.quick else 500)
-    args.test_time_queries = args.test_time_queries or (300 if args.quick else 2000)
+    args.tune_time_queries = args.tune_time_queries or (100 if args.quick else 500)
+    args.test_time_queries = args.test_time_queries or (200 if args.quick else 2000)
     if args.min_repeat_s is None:
-        args.min_repeat_s = 0.1 if args.quick else MIN_REPEAT_S
+        args.min_repeat_s = 0.05 if args.quick else MIN_REPEAT_S
     args.results = os.path.join(args.results_dir, "results.csv")
     grid = GRID["quick" if args.quick else "full"]
     t_start = time.perf_counter()

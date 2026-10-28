@@ -130,6 +130,105 @@ sentence.
 
 **Not tested:** re-rank depth ≠ 100; nlist ≠ 4096; GloVe; raw vectors on SSD; OPQ.
 
+## Part 4: drift. A shifted cluster appears (F4, T4a, T4b, T4c). Fits in one page.
+
+**What we changed.** One property: the shift s of a new 100K-vector cluster, inserted into indexes
+built on D (400K SIFT).
+- The cluster is real SIFT vectors [400K:500K] translated by s·σ·u: σ = 385 (RMS spread of D), u a
+  seeded random direction, s = 0 (control), 0.5, 1, 2.
+- A translation keeps the cluster's internal geometry, so only its position relative to the old
+  data, and to what each index learned, varies.
+- Fixed: N, the direction, the build settings (HNSW M=16; IVF nlist=2048; PQ m=32) and the seeds.
+- Query groups: old-region and new-region (moved with the cluster), from disjoint query halves.
+- Each index keeps one search setting chosen on the baseline, at 0.95 × its best baseline recall:
+  HNSW ef=48, IVF-Flat nprobe=48, IVF-PQ nprobe=24 (target 0.705).
+- *Geometry check:* even at s = 0.5, 98.6% of new-region true neighbours are new vectors (22.6% in
+  the control).
+
+**What happened** (new-region test queries, at the fixed setting):
+
+| | control s=0 | 0.5σ | 1σ | 2σ | rebuilt (1σ / 2σ) |
+|---|---|---|---|---|---|
+| IVF-PQ recall | 0.718 | 0.649 | 0.522 | **0.303** | 0.753 / 0.753 |
+| IVF-PQ PQ error new ÷ old | 0.99× | 2.6× | 8.9× | **55×** | 1.05× |
+| IVF-Flat recall | 0.978 | 0.956 | 0.965 | 0.992 | 0.997 / 0.997 |
+| IVF-Flat dist./query | 13,474 | 13,718 | 15,638 | **25,100** | 12,829 |
+| IVF-Flat QPS | 2,456 | 2,181 | 1,956 | **1,326** | 2,467 / 2,790 |
+| HNSW recall | 0.961 | 0.972 | 0.951 | 0.977 | 0.964 / 0.982 |
+| HNSW new→new level-0 links | 27% | 93% | 99.9% | 100% | 100% |
+
+- Old-region recall is within ±0.01 of the control in every state, for all three indexes.
+- **Re-tuning (T4c):** incremental IVF-PQ cannot reach 0.705 on the new region at *any* nprobe (best
+  0.680 / 0.536 / 0.304). Rebuilt, it reaches it at nprobe 12. IVF-Flat and HNSW reach the target
+  everywhere.
+- **Maintenance** (all threads, inserting 100K vs rebuilding 500K):
+
+| Index | Insert | Rebuild | Ratio |
+|---|---|---|---|
+| IVF-Flat | 0.4–0.7 s | 9.2–9.4 s | ≈ 15× |
+| IVF-PQ | 1.2 s | 37–39 s | ≈ 32× |
+| HNSW | 4.6–9.5 s | 38–41 s | ≈ 4–8× |
+
+**Mechanisms:**
+- **IVF-PQ: stale codebooks.** Encoding stores the residual x − centroid with codebooks learned on
+  D's residuals. A shifted vector's residual from its (distant) nearest old centroid contains most of
+  the shift, which is far larger than anything the codebooks saw. The quantisation error swamps the
+  neighbour distance gaps: 55× the error at 2σ, and a mean error of about 4,055 × 55 ≈ 223K in
+  squared units, against a squared 10-NN distance of about 57K.
+  - Every candidate in the new region is mis-ranked, and probing more lists only adds more
+    mis-ranked candidates, so re-tuning can't help.
+  - Rebuilding retrains both centroids and codebooks on D′, and the error ratio returns to 1.05×.
+- **IVF-Flat: stale centroids cost speed, not exactness.**
+  - At 2σ, every new vector goes to its nearest *old* centroid, which is on the old data's edge.
+    90% land in 240 of 2,048 lists; the largest list grows to 2,897 (93% new); imbalance rises from
+    1.24 to 1.84.
+  - A new-region query probes those same overloaded lists, so it scans 1.9× more vectors.
+  - Distances are exact and the neighbours sit together in those lists, so recall stays high, even
+    0.99.
+  - At 0.5σ, recall dips a little (0.956 vs 0.978). The cluster then sits among old centroids that
+    cut it along boundaries learned for the old data, so neighbours spread across lists.
+  - Rebuilding gives the cluster its own ~316 lists: 12.8K dist./query and recall 0.997.
+- **HNSW: nothing learned, nothing stale.** Each insertion runs a graph search to find the new node's
+  neighbours, so a far cluster builds its own well-connected subgraph (99.9–100% of new nodes' links
+  are new→new).
+  - The few remaining bridges to the old graph (1,906 links at 1σ incremental, 5 at 2σ rebuilt, at
+    level 0) are enough for the greedy search to enter the cluster.
+  - Upper layers also contain new nodes. We measured only level-0 links; say so.
+  - Recall changes by at most ±0.02 with no trend. The new region is even slightly cheaper (800–860
+    vs 950 dist./query), because the cluster is a smaller graph.
+
+**Verdict on the hypothesis:**
+
+| Hypothesis claim | Result |
+|---|---|
+| "Shift reduces recall for at least one incrementally updated index, particularly for new-region queries" | **Supported**, by IVF-PQ: −0.42 at 2σ, new region only |
+| IVF-Flat: new vectors crowd into few lists, imbalance and candidates scanned rise, rebuild restores efficiency | **Supported** (all three measured). Recall did *not* fall at large shift |
+| IVF-PQ more sensitive than IVF-Flat, residuals poorly represented | **Supported**, strongly (PQ error 55×; re-tuning cannot recover) |
+| HNSW "depends on how new vectors connect"; rebuild "not guaranteed" to help | **Supported as stated**: almost all links stay within the cluster, but search still works; rebuild gains ≤ 0.012 recall |
+| Rebuilding costs more maintenance time | **Supported** (4–32×). It pays off for IVF-PQ (the only fix), for IVF-Flat at large shift (+0.005 recall, 2.1× QPS), not for HNSW |
+
+**Caveats to mention:**
+- Panel (c): IVF-Flat's controls re-tune to nprobe 32 (incremental) vs 48 (rebuilt). That is one √2
+  grid step, worth about 1.6× QPS. It is why the rebuilt control sits at 0.61, a grid-step artifact
+  and not a drift effect.
+- HNSW insertion order is not bit-reproducible with multi-threaded builds (D-notes), so HNSW recall
+  differences of about 0.01 are noise.
+
+**Not tested:**
+- rotations or several new clusters;
+- a growing share of new vectors (fixed at 20%);
+- deletions (FAISS HNSW can't delete);
+- other nlist, M and m;
+- GloVe;
+- drift in queries only;
+- partial retraining.
+
+**For Q3 ("when the headline numbers mislead"):**
+- A benchmark that builds and queries on one static distribution (Parts 1–2) predicts nothing about
+  IVF-PQ after drift. Its recall halved with no warning in the old-region numbers, and averaging both
+  query groups would hide half of the drop.
+- The cheap incremental insert (32× cheaper than rebuilding) is the trap.
+
 ## Q1. Fastest at 0.95 on each dataset? Does it change?
 
 | at recall 0.95 | SIFT | GloVe |
@@ -174,7 +273,7 @@ needs the raw vectors again, in RAM or on disk.
 
 ## Q3. What Parts 3 and 4 show, and when the headline numbers could mislead
 
-*(Part 3 points are in the Part 3 section above; add Part 4 when done.)*
+*(Part 3 and Part 4 points are in their sections above, under "For Q3".)*
 
 ## Q4. 150K or 10M vectors, 100 ms per query, 16 GB RAM
 

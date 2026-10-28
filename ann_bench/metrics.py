@@ -122,11 +122,10 @@ def strict_recall_at_k(retrieved_ids: np.ndarray, gt_ids: np.ndarray, k: int = 1
     """Plain id-intersection recall@k with NO tie handling. Reported only for comparison."""
     ret = np.asarray(retrieved_ids)[:, :k]
     gt = np.asarray(gt_ids)[:, :k]
-    out = np.empty(ret.shape[0], dtype=np.float64)
-    for i in range(ret.shape[0]):
-        r = ret[i][ret[i] >= 0]
-        out[i] = len(np.intersect1d(r, gt[i])) / float(k)
-    return out
+    # |set(valid retrieved) & set(gt)|: each distinct valid retrieved id counts once if in gt
+    keep = (ret >= 0) & first_occurrence_mask(ret)
+    in_gt = (ret[:, :, None] == gt[:, None, :]).any(axis=2)
+    return (keep & in_gt).sum(axis=1) / float(k)
 
 
 def coverage_at_k(candidate_ids: np.ndarray, base: np.ndarray, queries: np.ndarray,

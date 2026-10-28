@@ -43,7 +43,12 @@ else
   "$PY" scripts/part3_compression.py --results-dir "$RES"
 fi
 
-# Part 4 is added here when implemented: scripts/part4_*.py
+echo "== Part 4: drift (a shifted cluster inserted vs rebuilt; generated, seeded data) =="
+if [[ $QUICK -eq 1 ]]; then
+  "$PY" scripts/part4_drift.py --quick --results-dir "$RES"
+else
+  "$PY" scripts/part4_drift.py --results-dir "$RES"
+fi
 
 echo "== Tables and figures =="
 "$PY" scripts/make_tables.py --results-dir "$RES"
