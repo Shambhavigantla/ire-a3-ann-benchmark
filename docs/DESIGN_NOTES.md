@@ -331,7 +331,23 @@ how QPS is computed (queries × loops ÷ median time). Parts 1–2 results stay 
    took 19 s of a 114 s quick IVF-Flat run. The new version gives the same output: it matched the old
    loop on 10,000 random rows, and the unit tests pass.
 
-These two changes, and D29, are why `run_all.sh --quick` fits in 15 minutes with Part 4 added.
+3. **Smaller quick-mode settings only. The full run is unchanged.** With all four parts,
+   `run_all.sh --quick` first took 15 min 9 s on this desktop. That is over the limit, which applies to
+   a slower laptop. Quick mode now uses:
+
+| Setting | Before | Now |
+|---|---|---|
+| Part 2 HNSW builds | M = 8, 16, 32 | M = 16, 32 |
+| Timed queries, Parts 2–3 (tune / test) | 200 / 300 | 100 / 200 |
+| Minimum repeat, Parts 2–3 | 0.1 s | 0.05 s |
+| Minimum repeat, Part 4 | 0.05 s | 0.02 s |
+| Pause before a timing block | 0.25 s | 0.1 s |
+
+   Quick results only show that the pipeline reproduces. Their QPS is noisier and is never reported.
+   Measured times on this desktop: 15 min 9 s, then 12 min 17 s after the first three rows, then
+   **10 min 22 s** with all of them (Part 2 4.2, Part 3 2.3, Part 4 3.3 min; all 53 tests pass).
+
+Changes 1–2 and D29 also make every run faster without changing what is measured.
 
 ## Part 4
 

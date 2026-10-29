@@ -126,7 +126,7 @@ def sweep(index, spec, db, qsets, gts, ctx, args, state, min_knob=0):
                 # settle only before the first timing after the multi-threaded step (D30)
                 timing[g] = time_search(lambda x, k: index.search(x, k)[1],
                                         qsets[(g, "test")][:args.time_queries], K, "single", args.repeats,
-                                        min_repeat_s=args.min_repeat_s, settle_s=0.25 if i == 0 else 0.0)
+                                        min_repeat_s=args.min_repeat_s, settle_s=args.settle_s if i == 0 else 0.0)
         for (g, split), (r, rs) in rec.items():
             tr = timing[g] if split == "test" else None
             if tr is not None and tr.cpu_per_wall > 1.3 and tr.median_s >= 0.05:
@@ -244,14 +244,15 @@ def main():
     p.add_argument("--results-dir", default=None, help="default: results/ (results/quick/ with --quick)")
     p.add_argument("--time-queries", type=int, default=None, help="test queries timed per group; default 500 (quick 100)")
     p.add_argument("--repeats", type=int, default=3)
-    p.add_argument("--min-repeat-s", type=float, default=None, help="default 0.2 (quick: 0.05)")
+    p.add_argument("--min-repeat-s", type=float, default=None, help="default 0.2 (quick: 0.02)")
     p.add_argument("--threads", type=int, default=None, help="threads for building and recall")
     p.add_argument("--no-pin", action="store_true")
     args = p.parse_args()
     args.results_dir = args.results_dir or ("results/quick" if args.quick else "results")
     args.time_queries = args.time_queries or (100 if args.quick else 500)
     if args.min_repeat_s is None:
-        args.min_repeat_s = 0.05 if args.quick else MIN_REPEAT_S
+        args.min_repeat_s = 0.02 if args.quick else MIN_REPEAT_S
+    args.settle_s = 0.1 if args.quick else 0.25    # pause before a timing block (D24, D30)
     args.results = os.path.join(args.results_dir, "results.csv")
     grid = GRID["quick" if args.quick else "full"]
     t_start = time.perf_counter()

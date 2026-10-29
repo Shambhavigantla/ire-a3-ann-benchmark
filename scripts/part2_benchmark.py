@@ -140,7 +140,7 @@ def run_build(ds, spec, splits, ctx, args):
                                            ("test", q_test[:args.test_time_queries]))):
                 # settle only before the first timing after the multi-threaded step (D30)
                 timing[name] = time_search(search, q, K, "single", args.repeats, min_repeat_s=args.min_repeat_s,
-                                           settle_s=0.25 if i == 0 else 0.0)
+                                           settle_s=args.settle_s if i == 0 else 0.0)
 
         for name in ("tune", "test"):
             tr = timing[name]
@@ -246,6 +246,7 @@ def main():
     args.test_time_queries = args.test_time_queries or (200 if args.quick else 2000)
     if args.min_repeat_s is None:
         args.min_repeat_s = 0.05 if args.quick else MIN_REPEAT_S
+    args.settle_s = 0.1 if args.quick else 0.25    # pause before a timing block (D24, D30)
     args.results = os.path.join(args.results_dir, "results.csv")
 
     write_machine_info(os.path.join(args.results_dir, "machine_info.json"))
