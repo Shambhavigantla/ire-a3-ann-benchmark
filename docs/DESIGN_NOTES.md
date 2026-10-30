@@ -21,7 +21,7 @@ Status: ✅ done · 🟡 code done, waiting on the full run · ⬜ not started.
 | T2a | QPS of each index at recall 0.90 and 0.95 | 2 | `tables/t2a_qps_at_recall.*` | ✅ (final run pending, D27) |
 | T2b | Build time, index size and bytes per vector for each index at recall 0.95 | 2 | `tables/t2b_cost_at_095.*` | ✅ (final run pending, D27) |
 | T2c | Highest recall each build setting reaches (supports the "why an index fails" text) | 2 | `tables/t2c_max_recall.*` | ✅ (final run pending, D27) |
-| — | Why an index fails to reach high recall (text) | 2 | report | ⬜ |
+| — | Why an index fails to reach high recall (text) | 2 | report, Part 2 | ✅ |
 | F3 | Part 3 figure: recall vs nprobe, QPS vs recall, re-rank gain (IVF-PQ m, plain vs re-rank vs IVF-Flat) | 3 | `figures/fig3_compression.*` | ✅ (final run pending, D27) |
 | T3a | Part 3 per method and m: memory, build time, best recall, QPS at 0.90/0.95 | 3 | `tables/t3a_compression_summary.*` | ✅ (final run pending, D27) |
 | T3b | Part 3 at equal nprobe: re-rank gain, coverage, gap to IVF-Flat, QPS ratio | 3 | `tables/t3b_rerank_fixed_nprobe.*` | ✅ (final run pending, D27) |
@@ -32,7 +32,7 @@ Status: ✅ done · 🟡 code done, waiting on the full run · ⬜ not started.
 | T4c | Part 4 setting needed to bring the new region back to the target, and its QPS | 4 | `tables/t4c_drift_retune.*` | ✅ (final run pending, D27) |
 | — | Part 4 hypothesis committed before running; seeded generator | 4 | `hypothesis.md` (commit `81de567`), `ann_bench/synthetic.py` | ✅ |
 | — | `results.csv`: one row per run behind every reported number | all | `results.csv` | 🟡 |
-| — | Report ≤ 5 pages answering Q1–Q5 | 5 | `report/` → `report.pdf` | ⬜ |
+| — | Report ≤ 5 pages answering Q1–Q5 | 5 | `report/report.pdf` (built by `scripts/make_report.py`) | 🟡 draft; regenerate after the final run, fill in name and roll number |
 | — | `ai_log/` and `ai_statement.md` (outside `code/`, at the top level of the zip) | — | `../ai_log/` | 🟡 |
 
 ---
@@ -439,3 +439,31 @@ the baseline would mix database growth into the drift effect.
 - GloVe;
 - query-only drift with no inserted vectors;
 - partial retraining (e.g. re-running k-means only on the lists that grew).
+
+## Report
+
+### D32. The report is generated from results, like the tables and figures
+The assignment says `run_all.sh` must regenerate *every number* in the report. So the report's prose
+lives in `report/report_template.html`, with every number written as a `${name}` placeholder.
+`scripts/make_report.py` computes each value from `results.csv` and the JSON summaries, using the
+same selection functions as the tables. It substitutes the values, writes `report/report.html`, and
+prints `report/report.pdf` (A4) with a headless Edge or Chrome. Neither LaTeX nor Pandoc is on this
+machine, and both browsers ship with Windows or are common elsewhere. If no browser is found, only
+the HTML is written. `run_all.sh` calls it last. A `--quick` run writes its report to
+`results/quick/report/`, and values the subset cannot provide are shown as "–" with a warning.
+
+*Choices:*
+- Figure 1 (exact single vs batch) is replaced by Table 1 in the report to save space. It is still
+  in `results/figures/`.
+- Q4 extrapolates exact-search latency from a linear fit over three sizes measured in the same
+  pipeline: 400K and 500K (Part 4) and 1M (Part 1).
+- Q5's run-to-run speed variance uses the settings that Part 3 re-measures from Part 2: SIFT IVF-Flat
+  and IVF-PQ at nlist 4096. That makes it reproducible from `results.csv`, not from a one-off
+  comparison.
+- Facts about bugs found during development (3.3 cores, 1.8×, 24%) are cited as development
+  findings (D13–D25).
+
+*Limits:*
+- Words such as "supported" or "HNSW is fastest" are fixed text. If a future run reversed a result,
+  the template prose would have to be re-read.
+- `make_report.py` prints the page count and warns above 5 pages.

@@ -264,4 +264,19 @@ IVF-PQ:
 **Also done for the 15-minute `--quick` limit:** one pause per timing block instead of two, and a
 faster strict-recall function (same results; D30).
 
-## Step 6: report (not started)
+## Step 6: report (draft done)
+
+- **Source and output:** `report/report_template.html` holds the text, with a placeholder for every
+  number. `scripts/make_report.py` fills the numbers in from the results and prints
+  `report/report.pdf`: 5 pages, A4, using the Edge browser built into Windows.
+- **Reproducibility:** `run_all.sh` rebuilds the report last, so after the final clean run the PDF
+  updates by itself.
+- **Contents:**
+  - Setup (machine, protocol).
+  - Part 1: the tie rule, the check against the file, Table 1 and why batching wins.
+  - Part 2: Figure 1, Table 2, and why IVF-PQ fails.
+  - Part 3: hypothesis, Figure 2, Table 3 and the verdict.
+  - Part 4 (one page): Figure 3, Table 4, mechanisms and verdict.
+  - Answers to Q1–Q5.
+- **Still to do by hand:** your name and roll number on line 2 of the template; read it through and
+  rewrite anything that isn't how you would explain it.

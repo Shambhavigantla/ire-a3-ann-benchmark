@@ -15,6 +15,7 @@ bash download_data.sh        # ~1 GB: SIFT-128 and GloVe-100 from ann-benchmarks
 | `bash run_all.sh` | Full datasets. Writes `results/results.csv`, `results/figures/`, and the summaries. |
 | `bash run_all.sh --quick` | Same pipeline on the first 100,000 base vectors. Writes to `results/quick/`. Takes under 15 minutes. |
 | `python -m pytest -q` | Unit tests only. |
+| `python scripts/make_report.py` | Rebuild `report/report.html` and `report/report.pdf` from `results/` (PDF needs Edge or Chrome; set `REPORT_BROWSER` to its path if it isn't found). |
 | `python scripts/part1_exact.py --datasets sift` | Part 1 on a single dataset. |
 
 Set `PYTHON=python3` if your interpreter has a different name. `results/machine_info.json` records the
@@ -49,6 +50,7 @@ code/
 │   ├── part3_compression.py ✅ IVF-PQ m, plain vs exact re-ranking of the top 100, vs IVF-Flat
 │   ├── part4_drift.py      ✅ new shifted cluster: inserted vs rebuilt, HNSW / IVF-Flat / IVF-PQ
 │   ├── make_tables.py      ✅ results/ → results/tables/*.md and *.tex
+│   ├── make_report.py      ✅ results/ → report/report.html and report.pdf (every number filled in)
 │   └── make_figures.py     ✅ results/ → results/figures/*.png and *.pdf
 ├── tests/                  ✅ unit tests (recall, timing, data, frontier, Part 3 coverage, Part 4 generator) + FAISS tests
 ├── docs/
@@ -56,7 +58,7 @@ code/
 │   ├── PROCESS_LOG.md      ✅ plain-language log of each step
 │   ├── REPORT_NOTES.md     ✅ observations, numbers and mechanisms for the report
 │   └── HYPOTHESIS_GUIDE.md ✅ how the Part 3/4 hypotheses were approached
-├── report/                 ⬜ report source → report.pdf (≤ 5 pages)
+├── report/                 ✅ report_template.html (text, ${…} placeholders) → report.html, report.pdf (≤ 5 pages)
 ├── results/                full-run outputs (submitted)
 │   ├── results.csv         one row per benchmark run
 │   ├── machine_info.json  part*_summary.json

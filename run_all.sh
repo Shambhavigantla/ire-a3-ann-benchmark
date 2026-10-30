@@ -54,4 +54,7 @@ echo "== Tables and figures =="
 "$PY" scripts/make_tables.py --results-dir "$RES"
 "$PY" scripts/make_figures.py --results-dir "$RES"
 
+echo "== Report (HTML, and PDF if Edge/Chrome is installed) =="
+"$PY" scripts/make_report.py --results-dir "$RES"
+
 echo "Done. Results in $RES/ (tables in $RES/tables, figures in $RES/figures)"
