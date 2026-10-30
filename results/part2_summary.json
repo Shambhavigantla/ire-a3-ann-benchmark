@@ -2,10 +2,10 @@
   {
     "dataset": "sift",
     "n_base": 1000000,
-    "exact_single_qps": 41.2665184766816,
-    "call_overhead_qps": 374293.520970123,
-    "pinning": "1 thread, pinned to P-cores 0-11",
-    "build_threads": 20,
+    "exact_single_qps": 29.768160150941373,
+    "call_overhead_qps": 167333.21099799377,
+    "pinning": "1 thread, pinned to P-cores 0-7",
+    "build_threads": 12,
     "grid": {
       "HNSW": [
         {
@@ -188,10 +188,10 @@
   {
     "dataset": "glove",
     "n_base": 1183514,
-    "exact_single_qps": 43.16921825454194,
-    "call_overhead_qps": 398081.24846274196,
-    "pinning": "1 thread, pinned to P-cores 0-11",
-    "build_threads": 20,
+    "exact_single_qps": 31.232546277161305,
+    "call_overhead_qps": 201604.77193444935,
+    "pinning": "1 thread, pinned to P-cores 0-7",
+    "build_threads": 12,
     "grid": {
       "HNSW": [
         {

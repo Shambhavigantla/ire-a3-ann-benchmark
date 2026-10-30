@@ -47,14 +47,14 @@
     }
   },
   "exact_single_qps": {
-    "D": 87.91924125343468,
-    "D'": 69.66896477875041
+    "D": 67.8929606378077,
+    "D'": 54.50077332518096
   },
   "time_queries_per_group": 500,
   "repeats": 3,
   "min_repeat_s": 0.2,
-  "pinning": "1 thread, pinned to P-cores 0-11",
-  "build_threads": 20,
+  "pinning": "1 thread, pinned to P-cores 0-7",
+  "build_threads": 12,
   "indexes": {
     "HNSW": {
       "spec": {
@@ -64,7 +64,7 @@
       "states": [],
       "fixed_knob": 48,
       "target_recall": 0.949392,
-      "baseline_build_s": 32.199398400000064
+      "baseline_build_s": 34.94421670003794
     },
     "IVFFlat": {
       "spec": {
@@ -72,8 +72,8 @@
       },
       "states": [],
       "fixed_knob": 48,
-      "target_recall": 0.9491640000000001,
-      "baseline_build_s": 8.68115139999827
+      "target_recall": 0.949202,
+      "baseline_build_s": 9.246329999994487
     },
     "IVFPQ": {
       "spec": {
@@ -82,8 +82,8 @@
       },
       "states": [],
       "fixed_knob": 24,
-      "target_recall": 0.70452,
-      "baseline_build_s": 37.81347160000041
+      "target_recall": 0.7091179999999999,
+      "baseline_build_s": 54.379654100048356
     }
   }
 }

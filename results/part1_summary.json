@@ -3,7 +3,7 @@
     "dataset": "sift",
     "n_base": 1000000,
     "dim": 128,
-    "build_time_s": 0.12044130000140285,
+    "build_time_s": 0.1975040000397712,
     "index_bytes": 512000045,
     "check_vs_file": {
       "mode": "full",
@@ -23,44 +23,44 @@
         "mode": "single",
         "threads": 1,
         "n_queries": 1000,
-        "qps": 41.2665184766816,
-        "latency_ms": 24.23272029999498,
+        "qps": 29.768160150941373,
+        "latency_ms": 33.592939399997704,
         "recall": 1.0,
-        "cpu_per_wall": 0.99463859076499,
+        "cpu_per_wall": 0.9721465110454313,
         "times_s": [
-          24.23272029999498,
-          24.17626869999367,
-          24.418971500002954
+          33.37561410001945,
+          34.85187570005655,
+          33.592939399997704
         ],
-        "note": "pinned to P-cores 0-11"
+        "note": "pinned to P-cores 0-7"
       },
       {
         "mode": "batch",
         "threads": 1,
         "n_queries": 5000,
-        "qps": 379.480770426845,
-        "latency_ms": 2.6351796399991145,
+        "qps": 285.60665280643315,
+        "latency_ms": 3.5013190000085164,
         "recall": 1.0,
-        "cpu_per_wall": 0.9930004071734446,
+        "cpu_per_wall": 0.9810688276985499,
         "times_s": [
-          13.175898199995572,
-          13.18163989999448,
-          13.16913249999925
+          17.50659500004258,
+          17.57638089999091,
+          17.458572200033814
         ],
-        "note": "pinned to P-cores 0-11"
+        "note": "pinned to P-cores 0-7"
       },
       {
         "mode": "batch",
-        "threads": 20,
+        "threads": 12,
         "n_queries": 5000,
-        "qps": 737.408386778954,
-        "latency_ms": 1.3561006599993561,
+        "qps": 503.1734799170804,
+        "latency_ms": 1.9873861399944872,
         "recall": 1.0,
-        "cpu_per_wall": 19.34267640538955,
+        "cpu_per_wall": 10.002400421210396,
         "times_s": [
-          6.780503299996781,
-          6.749224899998808,
-          6.7823845999955665
+          9.400756500079297,
+          9.936930699972436,
+          12.948312800028361
         ],
         "note": "all cores"
       }
@@ -70,7 +70,7 @@
     "dataset": "glove",
     "n_base": 1183514,
     "dim": 100,
-    "build_time_s": 0.11091019999730634,
+    "build_time_s": 0.15789819997735322,
     "index_bytes": 473405645,
     "check_vs_file": {
       "mode": "full",
@@ -80,7 +80,7 @@
       "queries_with_tie_aware_recall_below_1": 0,
       "recall_strict_mean": 1.0,
       "queries_where_only_ties_differ": 0,
-      "top100_ids_identical_in_order_frac": 0.9882,
+      "top100_ids_identical_in_order_frac": 0.988,
       "distance_mapping": "2*d (cosine distance)",
       "distance_max_abs_err": 1.2516975402832031e-06,
       "distance_max_rel_err": 2.5577902855350313e-05
@@ -90,44 +90,44 @@
         "mode": "single",
         "threads": 1,
         "n_queries": 1000,
-        "qps": 43.16921825454194,
-        "latency_ms": 23.164653899999394,
+        "qps": 31.232546277161305,
+        "latency_ms": 32.01788259996101,
         "recall": 1.0,
-        "cpu_per_wall": 0.9935175818312497,
+        "cpu_per_wall": 0.9939910843277626,
         "times_s": [
-          22.928639899997506,
-          23.164653899999394,
-          24.20616670000163
+          30.307063800049946,
+          33.02927910001017,
+          32.01788259996101
         ],
-        "note": "pinned to P-cores 0-11"
+        "note": "pinned to P-cores 0-7"
       },
       {
         "mode": "batch",
         "threads": 1,
         "n_queries": 5000,
-        "qps": 339.9366110683981,
-        "latency_ms": 2.9417249199992512,
+        "qps": 232.52359301807638,
+        "latency_ms": 4.300638859998434,
         "recall": 1.0,
-        "cpu_per_wall": 0.9957963482183119,
+        "cpu_per_wall": 0.9920081467374908,
         "times_s": [
-          14.708624599996256,
-          14.429693300000508,
-          15.76920770000288
+          21.503194299992174,
+          21.840173200005665,
+          20.951719400007278
         ],
-        "note": "pinned to P-cores 0-11"
+        "note": "pinned to P-cores 0-7"
       },
       {
         "mode": "batch",
-        "threads": 20,
+        "threads": 12,
         "n_queries": 5000,
-        "qps": 499.843359088271,
-        "latency_ms": 2.000626759999432,
+        "qps": 394.65557732929875,
+        "latency_ms": 2.533854979998432,
         "recall": 1.0,
-        "cpu_per_wall": 5.78963997317966,
+        "cpu_per_wall": 8.851869393194988,
         "times_s": [
-          10.017851700002211,
-          10.000311300005706,
-          10.003133799997158
+          12.14040150004439,
+          12.66927489999216,
+          12.775957800098695
         ],
         "note": "all cores"
       }

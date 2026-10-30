@@ -5,7 +5,24 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PY="${PYTHON:-python}"
+if [[ -n "${PYTHON:-}" ]]; then
+  PY="$PYTHON"
+else
+  PY=""
+  for candidate in \
+    "${VIRTUAL_ENV:-}/Scripts/python.exe" \
+    "${VIRTUAL_ENV:-}/bin/python" \
+    ".venv-1/Scripts/python.exe" \
+    ".venv/Scripts/python.exe" \
+    ".venv-1/bin/python" \
+    ".venv/bin/python"; do
+    if [[ -x "$candidate" ]] && "$candidate" -c "import pytest" >/dev/null 2>&1; then
+      PY="$candidate"
+      break
+    fi
+  done
+  PY="${PY:-python}"
+fi
 QUICK=0
 if [[ "${1:-}" == "--quick" ]]; then QUICK=1; fi
 
